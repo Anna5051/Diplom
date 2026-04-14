@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Charitor.ai — Main</title>
+    <link rel="stylesheet" href="/css/general.css" />
+    <link rel="stylesheet" href="/css/main.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-left">
+        <a href="/pages/index.html" class="brand">Charitor.ai</a>
+      </div>
+
+      <div class="topbar-center">
+        <div class="search-box">
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="Поиск персонажей..."
+          />
+          <button type="button" aria-label="Поиск">⌕</button>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+        <button class="icon-btn" type="button">💬</button>
+        <button class="icon-btn" type="button">🔔</button>
+        <a href="/pages/profile.html" class="profile-mini">
+          <img id="topAvatar" src="/img/icon.svg" alt="avatar" />
+        </a>
+      </div>
+    </header>
+
+    <main class="main-page">
+      <section class="hero-banner">
+        <div class="hero-overlay">
+          <div class="hero-content">
+            <div class="hero-badge">AI Character Platform</div>
+
+            <h1>Общайся с персонажами и создавай собственных</h1>
+
+            <p>Создавай AI-персонажей и исследуй чужие</p>
+
+            <div class="hero-actions">
+              <a href="/pages/create.html" class="hero-btn primary">
+                Создать персонажа
+              </a>
+
+              <button
+                type="button"
+                id="showAllBotsHeroBtn"
+                class="hero-btn secondary"
+              >
+                Все персонажи
+              </button>
+            </div>
+          </div>
+
+          <div class="hero-side-card">
+            <div class="hero-side-title">Ваш профиль</div>
+            <div class="hero-side-name" id="heroUsername">Пользователь</div>
+            <div class="hero-side-text">Добро пожаловать обратно</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="banner-row">
+        <div class="banner-card">Новые истории</div>
+        <div class="banner-card">Ваши чаты</div>
+        <div class="banner-card">Популярные боты</div>
+        <div class="banner-card">Подписки</div>
+      </section>
+
+      <section class="dashboard">
+        <aside class="sidebar">
+          <div class="sidebar-menu">
+            <a href="/pages/profile.html" class="sidebar-btn">Профиль</a>
+            <a href="#" class="sidebar-btn">Персоны</a>
+            <a href="#" class="sidebar-btn">Мои чаты</a>
+            <a href="#" class="sidebar-btn">Настройки</a>
+            <a href="/pages/create.html" class="sidebar-btn"
+              >Создать персонажа</a
+            >
+            <a href="#" class="sidebar-btn">Заблокированные</a>
+            <a href="/pages/admin.html" id="adminPanelBtn" class="sidebar-btn"
+              >Админ-панель</a
+            >
+          </div>
+
+          <div class="subscriptions-box">
+            <h3>Ваши подписки</h3>
+            <div id="subscriptions-list"></div>
+            <p id="subscriptions-empty" class="empty-state">
+              У вас пока нет подписок
+            </p>
+
+            <a href="#" class="all-subs-btn">Все подписки</a>
+          </div>
+        </aside>
+
+        <div class="content-area">
+          <section class="last-chats">
+            <div class="section-header">
+              <h2>Последние чаты</h2>
+              <a href="#" class="history-btn">История чатов</a>
+            </div>
+
+            <div id="chat-list" class="chat-list"></div>
+
+            <p id="chats-empty" class="empty-state">
+              У вас пока нет истории чатов
+            </p>
+          </section>
+
+          <section class="tabs-row">
+            <button class="tab-btn active" id="myBotsTabBtn">
+              Мои персонажи
+            </button>
+            <button class="tab-btn" id="allBotsTabBtn">Все персонажи</button>
+            <button class="tab-btn">Популярное</button>
+            <button class="tab-btn">В тренде</button>
+            <button class="tab-btn">Подписки</button>
+          </section>
+
+          <p class="found-text" id="found-text">Найдено: 0</p>
+
+          <section id="cards-grid" class="cards-grid"></section>
+
+          <p id="bots-empty" class="empty-state">Персонажи не найдены</p>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const savedUser = JSON.parse(localStorage.getItem("user"));
+
+      if (!savedUser) {
+        window.location.href = "/pages/autorization.html";
+      }
+
+      const heroUsername = document.getElementById("heroUsername");
+      const topAvatar = document.getElementById("topAvatar");
+      const adminPanelBtn = document.getElementById("adminPanelBtn");
+
+      const searchInput = document.getElementById("searchInput");
+
+      const chatList = document.getElementById("chat-list");
+      const chatsEmpty = document.getElementById("chats-empty");
+
+      const cardsGrid = document.getElementById("cards-grid");
+      const botsEmpty = document.getElementById("bots-empty");
+      const foundText = document.getElementById("found-text");
+
+      const subscriptionsList = document.getElementById("subscriptions-list");
+      const subscriptionsEmpty = document.getElementById("subscriptions-empty");
+
+      const myBotsTabBtn = document.getElementById("myBotsTabBtn");
+      const allBotsTabBtn = document.getElementById("allBotsTabBtn");
+      const showAllBotsHeroBtn = document.getElementById("showAllBotsHeroBtn");
+
+      heroUsername.textContent = savedUser.username || "Пользователь";
+
+      const avatarStorageKey = `profileAvatar_${savedUser.id}`;
+      const savedAvatar =
+        localStorage.getItem(avatarStorageKey) || savedUser.avatar_url || "";
+
+      if (savedAvatar) {
+        topAvatar.src = savedAvatar;
+      }
+
+      if (adminPanelBtn && Number(savedUser.role_id) !== 2) {
+        adminPanelBtn.style.display = "none";
+      }
+
+      let currentTab = "my";
+      let myBotsData = [];
+      let allBotsData = [];
+
+      const chats = [];
+      const subscriptions = [];
+
+      function renderChats(items) {
+        chatList.innerHTML = "";
+
+        if (!items || items.length === 0) {
+          chatsEmpty.style.display = "block";
+          return;
+        }
+
+        chatsEmpty.style.display = "none";
+
+        items.forEach((chat) => {
+          const card = document.createElement("div");
+          card.className = "chat-card";
+
+          card.innerHTML = `
+          <img src="${chat.avatar || "/img/icon.svg"}" alt="chat" />
+          <div class="chat-info">
+            <h4>${chat.bot_name}</h4>
+            <p>Последний чат с ботом ${chat.bot_name}</p>
+            <p><strong>Персона:</strong> ${chat.persona_name || "Не выбрана"}</p>
+            <a href="#" class="mini-btn">Продолжить</a>
+          </div>
+        `;
+
+          chatList.appendChild(card);
+        });
+      }
+
+      function renderSubscriptions(items) {
+        subscriptionsList.innerHTML = "";
+
+        if (!items || items.length === 0) {
+          subscriptionsEmpty.style.display = "block";
+          return;
+        }
+
+        subscriptionsEmpty.style.display = "none";
+
+        items.forEach((sub) => {
+          const item = document.createElement("div");
+          item.className = "sub-item";
+
+          item.innerHTML = `
+          <img src="${sub.avatar || "/img/icon.svg"}" alt="sub" />
+          <div>
+            <div class="sub-name">${sub.name}</div>
+            <div class="sub-role">Автор: ${sub.author || "Неизвестно"}</div>
+          </div>
+        `;
+
+          subscriptionsList.appendChild(item);
+        });
+      }
+
+      function renderBots(items) {
+        cardsGrid.innerHTML = "";
+        foundText.textContent = `Найдено: ${items.length}`;
+
+        if (!items || items.length === 0) {
+          botsEmpty.style.display = "block";
+          return;
+        }
+
+        botsEmpty.style.display = "none";
+
+        items.forEach((bot) => {
+          const card = document.createElement("article");
+          card.className = "bot-card";
+
+          card.innerHTML = `
+          <div class="bot-image">
+            <a href="/pages/bot.html?id=${bot.id}">
+              <img src="${bot.avatar || "/img/icon.svg"}" alt="bot" />
+            </a>
+          </div>
+
+          <div class="bot-body">
+            <div class="bot-top">
+              <div>
+                <h3>
+                  <a href="/pages/bot.html?id=${bot.id}" style="color:inherit; text-decoration:none;">
+                    ${bot.name}
+                  </a>
+                </h3>
+                <p>${bot.subtitle || "Без категории"}</p>
+              </div>
+              <span class="heart">❤</span>
+            </div>
+
+            <div class="bot-meta">
+              <span>Автор: ${bot.author || "Неизвестно"}</span>
+              <span>Теги: ${bot.tags || "Нет"}</span>
+            </div>
+
+            <p class="bot-desc">
+              ${bot.description || "Описание пока отсутствует"}
+            </p>
+
+            <div class="bot-actions">
+              <a href="/pages/bot.html?id=${bot.id}" class="card-btn primary">Открыть</a>
+              <a href="/pages/chat.html?id=${bot.id}" class="card-btn">Начать чат</a>
+            </div>
+          </div>
+        `;
+
+          cardsGrid.appendChild(card);
+        });
+      }
+
+      function getCurrentSource() {
+        return currentTab === "all" ? allBotsData : myBotsData;
+      }
+
+      function applySearch() {
+        const query = searchInput.value.trim().toLowerCase();
+        const source = getCurrentSource();
+
+        const filtered = source.filter((bot) => {
+          return [bot.name, bot.author, bot.tags, bot.description, bot.subtitle]
+            .join(" ")
+            .toLowerCase()
+            .includes(query);
+        });
+
+        renderBots(filtered);
+      }
+
+      function activateTab(tabName) {
+        currentTab = tabName;
+
+        document.querySelectorAll(".tab-btn").forEach((btn) => {
+          btn.classList.remove("active");
+        });
+
+        if (tabName === "all") {
+          allBotsTabBtn.classList.add("active");
+        } else {
+          myBotsTabBtn.classList.add("active");
+        }
+
+        applySearch();
+      }
+
+      async function loadMyBots() {
+        if (!savedUser || !savedUser.id) return;
+
+        try {
+          const response = await fetch(
+            `http://localhost:3000/my-bots/${savedUser.id}`,
+          );
+
+          if (!response.ok) {
+            const text = await response.text();
+            console.error("MY BOTS RAW RESPONSE:", text);
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const data = await response.json();
+
+          myBotsData = (Array.isArray(data) ? data : []).map((bot) => ({
+            id: bot.id,
+            name: bot.name,
+            subtitle: "Ваш персонаж",
+            author: savedUser.username || "Вы",
+            tags: bot.tags || "",
+            description: bot.short_description || "",
+            avatar: bot.avatar_url || "/img/icon.svg",
+          }));
+        } catch (error) {
+          console.error("Ошибка загрузки моих ботов:", error);
+          myBotsData = [];
+        }
+      }
+
+      async function loadAllBots() {
+        try {
+          const response = await fetch("http://localhost:3000/all-bots");
+
+          if (!response.ok) {
+            const text = await response.text();
+            console.error("ALL BOTS RAW RESPONSE:", text);
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const data = await response.json();
+
+          allBotsData = (Array.isArray(data) ? data : []).map((bot) => ({
+            id: bot.id,
+            name: bot.name,
+            subtitle: "Публичный персонаж",
+            author: bot.author_name || "Неизвестно",
+            tags: bot.tags || "",
+            description: bot.short_description || "",
+            avatar: bot.avatar_url || "/img/icon.svg",
+          }));
+        } catch (error) {
+          console.error("Ошибка загрузки всех ботов:", error);
+          allBotsData = [];
+        }
+      }
+
+      myBotsTabBtn.addEventListener("click", () => {
+        activateTab("my");
+      });
+
+      allBotsTabBtn.addEventListener("click", () => {
+        activateTab("all");
+      });
+
+      showAllBotsHeroBtn.addEventListener("click", () => {
+        activateTab("all");
+        window.location.hash = "cards-grid";
+      });
+
+      searchInput.addEventListener("input", applySearch);
+
+      renderChats(chats);
+      renderSubscriptions(subscriptions);
+
+      (async () => {
+        await loadMyBots();
+        await loadAllBots();
+        activateTab("my");
+      })();
+    </script>
+  </body>
+</html>

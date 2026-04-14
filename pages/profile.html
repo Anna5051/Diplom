@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Профиль — Charitor.ai</title>
+    <link rel="stylesheet" href="/css/general.css" />
+    <link rel="stylesheet" href="/css/profile.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-left">
+        <a href="/pages/index.html" class="brand">Charitor.ai</a>
+
+        <a href="/pages/main.html" class="back-btn"> ← На главную </a>
+
+        <a href="/pages/admin.html" id="adminPanelBtn" class="back-btn">
+          Админ-панель
+        </a>
+      </div>
+
+      <div class="topbar-center">
+        <form class="search-box" action="#" method="get">
+          <input type="text" placeholder="Поиск..." />
+          <button type="submit" aria-label="Поиск">⌕</button>
+        </form>
+      </div>
+
+      <div class="topbar-right">
+        <button class="icon-btn" type="button" aria-label="Чаты">💬</button>
+        <button class="icon-btn" type="button" aria-label="Уведомления">
+          🔔
+        </button>
+
+        <a href="/pages/profile.html" class="profile-mini">
+          <img id="topbarAvatar" src="/img/icon.svg" alt="avatar" />
+        </a>
+      </div>
+    </header>
+
+    <main class="profile-shell">
+      <div class="profile-layout">
+        <section class="profile-main-card">
+          <div class="profile-header">
+            <div class="profile-avatar-block">
+              <img
+                src="/img/icon.svg"
+                alt="avatar"
+                class="profile-avatar"
+                id="profileAvatar"
+              />
+
+              <label for="profileAvatarInput" class="avatar-change-btn">
+                Сменить фото
+              </label>
+              <input
+                type="file"
+                id="profileAvatarInput"
+                accept="image/*"
+                hidden
+              />
+            </div>
+
+            <div class="profile-user-info">
+              <div class="profile-title-row">
+                <div>
+                  <h1>@<span id="username">Hanna</span></h1>
+                  <p class="followers-count">
+                    <span id="followersCount">0</span> followers
+                  </p>
+                  <p class="member-since">
+                    Member Since <span id="memberSince">Aug 19, 2024</span>
+                  </p>
+                </div>
+
+                <button class="edit-btn" id="toggleEditBtn" type="button">
+                  Редактировать профиль
+                </button>
+              </div>
+
+              <div class="profile-bio-preview-card">
+                <div class="profile-bio-title">О себе</div>
+                <div class="profile-description">
+                  <div id="profilePreview">Hi, I'm Hanna.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <section class="profile-editor-panel hidden" id="profileEditorPanel">
+            <div class="editor-panel-header">
+              <h2>Редактор профиля</h2>
+              <p>Измените текст профиля и сохраните локально.</p>
+            </div>
+
+            <div class="editor-toolbar">
+              <button type="button" data-command="formatBlock" data-value="p">
+                Paragraph
+              </button>
+              <button type="button" data-command="bold"><b>B</b></button>
+              <button type="button" data-command="italic"><i>I</i></button>
+              <button type="button" data-command="underline"><u>U</u></button>
+              <button type="button" data-command="removeFormat">⌫</button>
+              <button type="button" id="textColorBtn">🎨</button>
+              <button type="button" data-command="justifyLeft">☰</button>
+              <button type="button" data-command="justifyCenter">≡</button>
+              <button type="button" data-command="justifyRight">☷</button>
+              <button type="button" data-command="justifyFull">▤</button>
+              <button type="button" id="insertImageBtn">🖼</button>
+              <button type="button" id="createLinkBtn">🔗</button>
+              <button type="button" id="codeBtn">&lt;/&gt;</button>
+            </div>
+
+            <div
+              id="profileEditor"
+              class="profile-textarea"
+              contenteditable="true"
+              spellcheck="false"
+            >
+              Hi, I'm Hanna.
+            </div>
+
+            <div class="profile-actions">
+              <button class="save-btn" id="saveProfileBtn" type="button">
+                Сохранить
+              </button>
+              <button class="cancel-btn" id="cancelProfileBtn" type="button">
+                Отмена
+              </button>
+            </div>
+          </section>
+        </section>
+
+        <aside class="profile-sidebar">
+          <div class="sidebar-menu">
+            <a href="#" class="sidebar-btn">Понравившиеся</a>
+            <a href="#" class="sidebar-btn">Персоны</a>
+            <a href="#" class="sidebar-btn active">Персонажи</a>
+            <a href="/pages/create.html" class="sidebar-btn"
+              >Создать персонажа</a
+            >
+            <a href="/pages/admin.html" id="adminSidebarBtn" class="sidebar-btn"
+              >Админ-панель</a
+            >
+          </div>
+
+          <section class="characters-panel">
+            <div class="characters-head">
+              <h3>Characters</h3>
+            </div>
+
+            <div class="characters-tools">
+              <div class="sidebar-search">
+                <input
+                  type="text"
+                  id="characterSearch"
+                  placeholder="Поиск персонажей..."
+                />
+                <button type="button">⌕</button>
+              </div>
+
+              <select id="sortCharacters" class="sidebar-select">
+                <option value="latest">Latest</option>
+                <option value="name">Name</option>
+              </select>
+            </div>
+
+            <div id="charactersList" class="characters-list"></div>
+
+            <p id="charactersEmpty" class="characters-empty">No characters</p>
+          </section>
+        </aside>
+      </div>
+    </main>
+
+    <script>
+      const savedUser = JSON.parse(localStorage.getItem("user"));
+
+      if (!savedUser) {
+        window.location.href = "/pages/autorization.html";
+      }
+
+      const bioStorageKey = `profileBioHtml_${savedUser.id}`;
+      const avatarStorageKey = `profileAvatar_${savedUser.id}`;
+
+      const usernameElement = document.getElementById("username");
+      const profileEditor = document.getElementById("profileEditor");
+      const profilePreview = document.getElementById("profilePreview");
+      const saveProfileBtn = document.getElementById("saveProfileBtn");
+      const cancelProfileBtn = document.getElementById("cancelProfileBtn");
+      const followersCount = document.getElementById("followersCount");
+      const memberSince = document.getElementById("memberSince");
+      const toggleEditBtn = document.getElementById("toggleEditBtn");
+      const profileEditorPanel = document.getElementById("profileEditorPanel");
+
+      const profileAvatar = document.getElementById("profileAvatar");
+      const topbarAvatar = document.getElementById("topbarAvatar");
+      const profileAvatarInput = document.getElementById("profileAvatarInput");
+
+      const adminPanelBtn = document.getElementById("adminPanelBtn");
+      const adminSidebarBtn = document.getElementById("adminSidebarBtn");
+
+      if (Number(savedUser.role_id) !== 2) {
+        adminPanelBtn.style.display = "none";
+        adminSidebarBtn.style.display = "none";
+      }
+
+      const charactersList = document.getElementById("charactersList");
+      const charactersEmpty = document.getElementById("charactersEmpty");
+      const characterSearch = document.getElementById("characterSearch");
+      const sortCharacters = document.getElementById("sortCharacters");
+
+      let characters = [];
+
+      if (savedUser?.username) {
+        usernameElement.textContent = savedUser.username;
+      }
+
+      if (savedUser?.created_at) {
+        const date = new Date(savedUser.created_at);
+        if (!Number.isNaN(date.getTime())) {
+          memberSince.textContent = date.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          });
+        }
+      }
+
+      followersCount.textContent = "0";
+
+      const savedBioHtml = localStorage.getItem(bioStorageKey);
+      if (savedBioHtml) {
+        profileEditor.innerHTML = savedBioHtml;
+        profilePreview.innerHTML = savedBioHtml;
+      } else {
+        profilePreview.innerHTML = "Описание пока не заполнено";
+      }
+
+      const savedAvatar = localStorage.getItem(avatarStorageKey);
+      const userAvatar = savedUser.avatar_url || "";
+
+      if (savedAvatar && savedAvatar.trim()) {
+        profileAvatar.src = savedAvatar;
+        topbarAvatar.src = savedAvatar;
+      } else if (userAvatar && userAvatar.trim()) {
+        profileAvatar.src = userAvatar;
+        topbarAvatar.src = userAvatar;
+      }
+
+      function compressImage(file, maxSize = 320, quality = 0.82) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+
+          reader.onload = (e) => {
+            const img = new Image();
+
+            img.onload = () => {
+              const canvas = document.createElement("canvas");
+              let { width, height } = img;
+
+              if (width > height) {
+                if (width > maxSize) {
+                  height = Math.round((height * maxSize) / width);
+                  width = maxSize;
+                }
+              } else {
+                if (height > maxSize) {
+                  width = Math.round((width * maxSize) / height);
+                  height = maxSize;
+                }
+              }
+
+              canvas.width = width;
+              canvas.height = height;
+
+              const ctx = canvas.getContext("2d");
+              ctx.drawImage(img, 0, 0, width, height);
+
+              const result = canvas.toDataURL("image/jpeg", quality);
+              resolve(result);
+            };
+
+            img.onerror = reject;
+            img.src = e.target.result;
+          };
+
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+
+      profileAvatarInput.addEventListener("change", async () => {
+        const file = profileAvatarInput.files[0];
+        if (!file) return;
+
+        try {
+          const result = await compressImage(file, 320, 0.82);
+
+          profileAvatar.src = result;
+          topbarAvatar.src = result;
+
+          try {
+            localStorage.setItem(avatarStorageKey, result);
+          } catch (storageError) {
+            console.error("AVATAR SAVE ERROR:", storageError);
+            alert(
+              "Картинка слишком большая для сохранения в браузере. Она применена только временно.",
+            );
+          }
+        } catch (error) {
+          console.error("IMAGE COMPRESS ERROR:", error);
+          alert("Ошибка обработки изображения");
+        }
+      });
+
+      toggleEditBtn.addEventListener("click", () => {
+        profileEditorPanel.classList.toggle("hidden");
+
+        toggleEditBtn.textContent = profileEditorPanel.classList.contains(
+          "hidden",
+        )
+          ? "Редактировать профиль"
+          : "Скрыть редактор";
+      });
+
+      document
+        .querySelectorAll(".editor-toolbar button[data-command]")
+        .forEach((button) => {
+          button.addEventListener("click", () => {
+            const command = button.dataset.command;
+            const value = button.dataset.value || null;
+
+            profileEditor.focus();
+            document.execCommand(command, false, value);
+          });
+        });
+
+      document.getElementById("createLinkBtn").addEventListener("click", () => {
+        const url = prompt("Введите ссылку:");
+        if (!url) return;
+
+        profileEditor.focus();
+        document.execCommand("createLink", false, url);
+      });
+
+      document
+        .getElementById("insertImageBtn")
+        .addEventListener("click", () => {
+          const url = prompt("Вставьте ссылку на изображение:");
+          if (!url) return;
+
+          profileEditor.focus();
+          document.execCommand("insertImage", false, url);
+        });
+
+      document.getElementById("textColorBtn").addEventListener("click", () => {
+        const color = prompt("Введите цвет, например red, #ff00aa, white:");
+        if (!color) return;
+
+        profileEditor.focus();
+        document.execCommand("foreColor", false, color);
+      });
+
+      document.getElementById("codeBtn").addEventListener("click", () => {
+        const selection = window.getSelection().toString();
+        if (!selection) return;
+
+        profileEditor.focus();
+        document.execCommand("insertHTML", false, `<code>${selection}</code>`);
+      });
+
+      saveProfileBtn.addEventListener("click", () => {
+        const html = profileEditor.innerHTML.trim();
+
+        localStorage.setItem(bioStorageKey, html);
+        profilePreview.innerHTML = html || "Описание пока не заполнено";
+
+        alert("Профиль сохранён ✅");
+      });
+
+      cancelProfileBtn.addEventListener("click", () => {
+        const currentHtml =
+          localStorage.getItem(bioStorageKey) || "Hi, I'm Hanna.";
+        profileEditor.innerHTML = currentHtml;
+        profilePreview.innerHTML = currentHtml || "Описание пока не заполнено";
+      });
+
+      function renderCharacters(items) {
+        charactersList.innerHTML = "";
+
+        if (!items.length) {
+          charactersEmpty.style.display = "block";
+          return;
+        }
+
+        charactersEmpty.style.display = "none";
+
+        items.forEach((bot) => {
+          const card = document.createElement("article");
+          card.className = "character-card";
+
+          card.innerHTML = `
+          <img
+            src="${bot.avatar_url || "/img/icon.svg"}"
+            alt="bot"
+            class="character-card-image"
+          />
+
+          <div class="character-card-body">
+            <strong>
+              <a href="/pages/bot.html?id=${bot.id}">
+                ${bot.name}
+              </a>
+            </strong>
+
+            <p>${bot.short_description || "Без описания"}</p>
+
+            <small>${bot.tags || ""}</small>
+          </div>
+        `;
+
+          charactersList.appendChild(card);
+        });
+      }
+
+      function updateCharacters() {
+        let filtered = [...characters];
+        const query = characterSearch.value.trim().toLowerCase();
+
+        if (query) {
+          filtered = filtered.filter((item) =>
+            (item.name || "").toLowerCase().includes(query),
+          );
+        }
+
+        if (sortCharacters.value === "name") {
+          filtered.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+        } else {
+          filtered.sort((a, b) => (b.id || 0) - (a.id || 0));
+        }
+
+        renderCharacters(filtered);
+      }
+
+      characterSearch.addEventListener("input", updateCharacters);
+      sortCharacters.addEventListener("change", updateCharacters);
+
+      async function loadCharacters() {
+        if (!savedUser || !savedUser.id) return;
+
+        try {
+          const response = await fetch(
+            `http://localhost:3000/my-bots/${savedUser.id}`,
+          );
+
+          if (!response.ok) {
+            const text = await response.text();
+            console.error("RAW RESPONSE:", text);
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const data = await response.json();
+
+          characters = Array.isArray(data) ? data : [];
+          updateCharacters();
+        } catch (error) {
+          console.error("Ошибка загрузки персонажей:", error);
+          charactersEmpty.style.display = "block";
+          charactersEmpty.textContent = "Ошибка загрузки персонажей";
+        }
+      }
+
+      loadCharacters();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Чат — Charitor.ai</title>
+    <link rel="stylesheet" href="/css/general.css" />
+    <link rel="stylesheet" href="/css/chat.css" />
+    <style>
+      .message-empty {
+        color: #cfcfff;
+        opacity: 0.8;
+        padding: 20px;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="chat-topbar">
+      <a href="/pages/main.html" class="back-link">Назад</a>
+
+      <div class="chat-topbar-right">
+        <span class="persona-status"> Используется <span>персона</span> </span>
+
+        <button class="settings-btn" type="button">⚙</button>
+      </div>
+    </header>
+
+    <main class="chat-page">
+      <section class="chat-wrapper">
+        <div class="chat-header">
+          <div class="chat-bot-info">
+            <img
+              src="/img/icon.svg"
+              alt="bot avatar"
+              class="chat-bot-avatar"
+              id="chatBotAvatar"
+            />
+
+            <div class="chat-bot-meta">
+              <h1 id="chatBotName">Загрузка...</h1>
+            </div>
+          </div>
+
+          <div class="chat-header-actions">
+            <button type="button" class="mini-action">•••</button>
+            <button type="button" class="mini-action">⏩</button>
+            <button type="button" class="mini-action">✎</button>
+          </div>
+        </div>
+
+        <div class="messages-box" id="messagesBox">
+          <div class="message-empty">Загрузка сообщений...</div>
+        </div>
+      </section>
+
+      <form class="chat-input-area" id="chatForm">
+        <textarea id="chatInput" placeholder="Сообщение..." rows="3"></textarea>
+
+        <button type="submit" class="send-btn">➤</button>
+      </form>
+    </main>
+
+    <script>
+      const API_BASE = "http://127.0.0.1:3000";
+
+      const chatForm = document.getElementById("chatForm");
+      const chatInput = document.getElementById("chatInput");
+      const messagesBox = document.getElementById("messagesBox");
+      const chatBotName = document.getElementById("chatBotName");
+      const chatBotAvatar = document.getElementById("chatBotAvatar");
+
+      const params = new URLSearchParams(window.location.search);
+      const botId = params.get("id");
+      const userId = localStorage.getItem("user_id") || 1;
+
+      let currentChatId = null;
+
+      function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text ?? "";
+        return div.innerHTML;
+      }
+
+      function clearMessages() {
+        messagesBox.innerHTML = "";
+      }
+
+      function renderEmpty(text) {
+        messagesBox.innerHTML = `<div class="message-empty">${escapeHtml(text)}</div>`;
+      }
+
+      function renderMessage(senderType, text) {
+        const message = document.createElement("div");
+        const normalized = senderType === "user" ? "user" : "bot";
+
+        message.className =
+          normalized === "user"
+            ? "message message-user"
+            : "message message-bot";
+
+        message.innerHTML = `
+        <div class="message-bubble">${escapeHtml(text)}</div>
+      `;
+
+        messagesBox.appendChild(message);
+        messagesBox.scrollTop = messagesBox.scrollHeight;
+      }
+
+      async function safeReadJson(response) {
+        const raw = await response.text();
+
+        try {
+          return JSON.parse(raw);
+        } catch (e) {
+          console.error("Сервер вернул не JSON:", raw);
+          throw new Error(
+            "Сервер вернул не JSON. Проверь server.js и перезапусти Node.",
+          );
+        }
+      }
+
+      function setBotAvatar(avatarUrl) {
+        if (avatarUrl && String(avatarUrl).trim()) {
+          chatBotAvatar.src = avatarUrl;
+        } else {
+          chatBotAvatar.src = "/img/icon.svg";
+        }
+
+        chatBotAvatar.onerror = () => {
+          chatBotAvatar.src = "/img/icon.svg";
+        };
+      }
+
+      async function loadChatByBot() {
+        if (!botId) {
+          renderEmpty("Не передан id бота");
+          return;
+        }
+
+        try {
+          const response = await fetch(
+            `${API_BASE}/chat-by-bot/${botId}?user_id=${userId}`,
+          );
+          const data = await safeReadJson(response);
+
+          if (!response.ok) {
+            throw new Error(data.message || "Ошибка загрузки чата");
+          }
+
+          currentChatId = data.chat.id;
+
+          chatBotName.textContent = data.bot?.name || "Без имени";
+          chatInput.placeholder = `Сообщение ${data.bot?.name || "персонажу"}`;
+
+          setBotAvatar(data.bot?.avatar_url);
+
+          clearMessages();
+
+          if (Array.isArray(data.messages) && data.messages.length > 0) {
+            data.messages.forEach((msg) => {
+              renderMessage(msg.sender_type, msg.content);
+            });
+          } else {
+            renderEmpty("Сообщений пока нет");
+          }
+        } catch (error) {
+          console.error("Ошибка:", error);
+          renderEmpty(error.message);
+        }
+      }
+
+      chatForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const text = chatInput.value.trim();
+
+        if (!text) return;
+
+        if (!currentChatId) {
+          alert("Чат ещё не загружен");
+          return;
+        }
+
+        const hadEmpty = messagesBox.querySelector(".message-empty");
+        if (hadEmpty) {
+          clearMessages();
+        }
+
+        renderMessage("user", text);
+        chatInput.value = "";
+
+        try {
+          const response = await fetch(
+            `${API_BASE}/chat/${currentChatId}/message`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ text }),
+            },
+          );
+
+          const data = await safeReadJson(response);
+
+          if (!response.ok) {
+            throw new Error(data.message || "Ошибка отправки сообщения");
+          }
+
+          renderMessage(data.reply.sender_type, data.reply.content);
+        } catch (error) {
+          console.error("Ошибка отправки:", error);
+          alert(error.message);
+        }
+      });
+
+      loadChatByBot();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Админ-панель — Charitor.ai</title>
+    <link rel="stylesheet" href="/css/general.css" />
+    <link rel="stylesheet" href="/css/admin.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-left">
+        <a href="/pages/index.html" class="brand">Charitor.ai</a>
+        <a href="/pages/main.html" class="back-btn">← На главную</a>
+        <a href="/pages/profile.html" class="back-btn">Профиль</a>
+      </div>
+
+      <div class="topbar-center">
+        <div class="search-box">
+          <input
+            type="text"
+            id="globalSearch"
+            placeholder="Поиск в админке..."
+          />
+          <button type="button" aria-label="Поиск">⌕</button>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+        <a href="/pages/main.html" class="mini-link">Главная</a>
+        <a href="/pages/create.html" class="mini-link">Создать</a>
+        <a href="/pages/profile.html" class="profile-mini">
+          <img id="topbarAvatar" src="/img/icon.svg" alt="avatar" />
+        </a>
+      </div>
+    </header>
+
+    <main class="admin-shell">
+      <div class="admin-layout">
+        <aside class="admin-sidebar">
+          <button class="sidebar-btn active" data-tab="usersTab">
+            Пользователи
+          </button>
+          <button class="sidebar-btn" data-tab="botsTab">Боты</button>
+          <button class="sidebar-btn" data-tab="chatsTab">Чаты</button>
+
+          <div class="sidebar-links">
+            <a href="/pages/main.html" class="sidebar-link">Открыть главную</a>
+            <a href="/pages/profile.html" class="sidebar-link"
+              >Открыть профиль</a
+            >
+            <a href="/pages/create.html" class="sidebar-link"
+              >Создать персонажа</a
+            >
+          </div>
+        </aside>
+
+        <section class="admin-content">
+          <div id="usersTab" class="admin-tab active">
+            <div class="section-head">
+              <h2>Пользователи</h2>
+            </div>
+            <div id="usersList" class="admin-list"></div>
+            <p id="usersEmpty" class="empty-state">Нет пользователей</p>
+          </div>
+
+          <div id="botsTab" class="admin-tab">
+            <div class="section-head">
+              <h2>Боты</h2>
+            </div>
+
+            <div id="botsGrid" class="bots-grid"></div>
+            <p id="botsEmpty" class="empty-state">Нет ботов</p>
+          </div>
+
+          <div id="chatsTab" class="admin-tab">
+            <div class="section-head">
+              <h2>Чаты</h2>
+            </div>
+            <div id="chatsList" class="admin-list"></div>
+            <p id="chatsEmpty" class="empty-state">Нет чатов</p>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      const savedUser = JSON.parse(localStorage.getItem("user"));
+
+      if (!savedUser) {
+        window.location.href = "/pages/autorization.html";
+      }
+
+      if (Number(savedUser.role_id) !== 2) {
+        alert("Доступ только для администратора");
+        window.location.href = "/pages/main.html";
+      }
+
+      const topbarAvatar = document.getElementById("topbarAvatar");
+      if (savedUser.avatar_url && savedUser.avatar_url.trim()) {
+        topbarAvatar.src = savedUser.avatar_url;
+      }
+
+      const globalSearch = document.getElementById("globalSearch");
+
+      const usersList = document.getElementById("usersList");
+      const usersEmpty = document.getElementById("usersEmpty");
+
+      const botsGrid = document.getElementById("botsGrid");
+      const botsEmpty = document.getElementById("botsEmpty");
+
+      const chatsList = document.getElementById("chatsList");
+      const chatsEmpty = document.getElementById("chatsEmpty");
+
+      let allUsers = [];
+      let allBots = [];
+      let allChats = [];
+
+      function authHeaders() {
+        return {
+          "Content-Type": "application/json",
+          "x-user-id": savedUser.id,
+        };
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text ?? "";
+        return div.innerHTML;
+      }
+
+      document.querySelectorAll(".sidebar-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".sidebar-btn").forEach((b) => {
+            b.classList.remove("active");
+          });
+
+          document.querySelectorAll(".admin-tab").forEach((tab) => {
+            tab.classList.remove("active");
+          });
+
+          btn.classList.add("active");
+          document.getElementById(btn.dataset.tab).classList.add("active");
+        });
+      });
+
+      function renderUsers(items) {
+        usersList.innerHTML = "";
+
+        if (!items.length) {
+          usersEmpty.style.display = "block";
+          return;
+        }
+
+        usersEmpty.style.display = "none";
+
+        items.forEach((user) => {
+          const card = document.createElement("article");
+          card.className = "admin-card";
+
+          card.innerHTML = `
+          <div class="admin-card-body">
+            <div class="admin-grid">
+              <label>
+                <span>ID</span>
+                <input type="text" value="${escapeHtml(String(user.id))}" disabled>
+              </label>
+
+              <label>
+                <span>Username</span>
+                <input type="text" class="edit-username" value="${escapeHtml(user.username)}">
+              </label>
+
+              <label>
+                <span>Email</span>
+                <input type="text" class="edit-email" value="${escapeHtml(user.email)}">
+              </label>
+
+              <label>
+                <span>Role</span>
+                <select class="edit-role-id">
+                  <option value="1" ${Number(user.role_id) === 1 ? "selected" : ""}>user</option>
+                  <option value="2" ${Number(user.role_id) === 2 ? "selected" : ""}>admin</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="admin-actions">
+              <button class="action-btn primary save-user-btn">Сохранить</button>
+              <button class="action-btn danger delete-user-btn">Удалить</button>
+            </div>
+          </div>
+        `;
+
+          card
+            .querySelector(".save-user-btn")
+            .addEventListener("click", async () => {
+              const username = card
+                .querySelector(".edit-username")
+                .value.trim();
+              const email = card.querySelector(".edit-email").value.trim();
+              const role_id = Number(card.querySelector(".edit-role-id").value);
+
+              try {
+                const res = await fetch(
+                  `http://localhost:3000/admin/users/${user.id}`,
+                  {
+                    method: "PUT",
+                    headers: authHeaders(),
+                    body: JSON.stringify({ username, email, role_id }),
+                  },
+                );
+
+                const data = await res.json();
+                alert(data.message || "Готово");
+                if (res.ok) loadUsers();
+              } catch (error) {
+                console.error("SAVE USER ERROR:", error);
+                alert("Ошибка сохранения пользователя");
+              }
+            });
+
+          card
+            .querySelector(".delete-user-btn")
+            .addEventListener("click", async () => {
+              if (!confirm(`Удалить пользователя ${user.username}?`)) return;
+
+              try {
+                const res = await fetch(
+                  `http://localhost:3000/admin/users/${user.id}`,
+                  {
+                    method: "DELETE",
+                    headers: authHeaders(),
+                  },
+                );
+
+                const data = await res.json();
+                alert(data.message || "Готово");
+                if (res.ok) loadUsers();
+              } catch (error) {
+                console.error("DELETE USER ERROR:", error);
+                alert("Ошибка удаления пользователя");
+              }
+            });
+
+          usersList.appendChild(card);
+        });
+      }
+
+      function renderBots(items) {
+        botsGrid.innerHTML = "";
+
+        if (!items.length) {
+          botsEmpty.style.display = "block";
+          return;
+        }
+
+        botsEmpty.style.display = "none";
+
+        items.forEach((bot) => {
+          const card = document.createElement("article");
+          card.className = "bot-card-admin";
+
+          card.innerHTML = `
+          <div class="bot-image-admin">
+            <a href="/pages/bot.html?id=${bot.id}">
+              <img src="${escapeHtml(bot.avatar_url || "/img/icon.svg")}" alt="bot" />
+            </a>
+          </div>
+
+          <div class="bot-body-admin">
+            <div class="bot-top-admin">
+              <div>
+                <h3>
+                  <a href="/pages/bot.html?id=${bot.id}">
+                    ${escapeHtml(bot.name || "Без имени")}
+                  </a>
+                </h3>
+                <p>Автор: ${escapeHtml(bot.author_name || "Неизвестно")}</p>
+              </div>
+              <span class="bot-badge-admin">${escapeHtml(bot.visibility || "public")}</span>
+            </div>
+
+            <div class="bot-tags-admin">
+              ${escapeHtml(bot.tags || "Нет тегов")}
+            </div>
+
+            <div class="bot-edit-admin">
+              <label>
+                <span>Название</span>
+                <input type="text" class="edit-bot-name" value="${escapeHtml(bot.name || "")}">
+              </label>
+
+              <label>
+                <span>Visibility</span>
+                <select class="edit-bot-visibility">
+                  <option value="public" ${bot.visibility === "public" ? "selected" : ""}>public</option>
+                  <option value="private" ${bot.visibility === "private" ? "selected" : ""}>private</option>
+                </select>
+              </label>
+
+              <label class="full-width">
+                <span>Теги</span>
+                <input type="text" class="edit-bot-tags" value="${escapeHtml(bot.tags || "")}">
+              </label>
+            </div>
+
+            <div class="bot-actions-admin">
+              <a href="/pages/bot.html?id=${bot.id}" class="card-link-btn">Открыть</a>
+              <a href="/pages/chat.html?id=${bot.id}" class="card-link-btn">Чат</a>
+              <a href="/pages/create.html?id=${bot.id}" class="card-link-btn">Редактировать</a>
+              <button class="action-btn primary save-bot-btn">Сохранить</button>
+              <button class="action-btn danger delete-bot-btn">Удалить</button>
+            </div>
+          </div>
+        `;
+
+          card
+            .querySelector(".save-bot-btn")
+            .addEventListener("click", async () => {
+              const name = card.querySelector(".edit-bot-name").value.trim();
+              const visibility = card.querySelector(
+                ".edit-bot-visibility",
+              ).value;
+              const tags = card.querySelector(".edit-bot-tags").value.trim();
+
+              try {
+                const res = await fetch(
+                  `http://localhost:3000/admin/bots/${bot.id}`,
+                  {
+                    method: "PUT",
+                    headers: authHeaders(),
+                    body: JSON.stringify({ name, visibility, tags }),
+                  },
+                );
+
+                const data = await res.json();
+                alert(data.message || "Готово");
+                if (res.ok) loadBots();
+              } catch (error) {
+                console.error("SAVE BOT ERROR:", error);
+                alert("Ошибка сохранения бота");
+              }
+            });
+
+          card
+            .querySelector(".delete-bot-btn")
+            .addEventListener("click", async () => {
+              if (!confirm(`Удалить бота ${bot.name}?`)) return;
+
+              try {
+                const res = await fetch(
+                  `http://localhost:3000/admin/bots/${bot.id}`,
+                  {
+                    method: "DELETE",
+                    headers: authHeaders(),
+                  },
+                );
+
+                const data = await res.json();
+                alert(data.message || "Готово");
+                if (res.ok) loadBots();
+              } catch (error) {
+                console.error("DELETE BOT ERROR:", error);
+                alert("Ошибка удаления бота");
+              }
+            });
+
+          botsGrid.appendChild(card);
+        });
+      }
+
+      function renderChats(items) {
+        chatsList.innerHTML = "";
+
+        if (!items.length) {
+          chatsEmpty.style.display = "block";
+          return;
+        }
+
+        chatsEmpty.style.display = "none";
+
+        items.forEach((chat) => {
+          const card = document.createElement("article");
+          card.className = "admin-card";
+
+          card.innerHTML = `
+          <div class="admin-card-body">
+            <div class="admin-grid">
+              <label>
+                <span>ID</span>
+                <input type="text" value="${escapeHtml(String(chat.id))}" disabled>
+              </label>
+
+              <label>
+                <span>User</span>
+                <input type="text" value="${escapeHtml(chat.user_name || "")}" disabled>
+              </label>
+
+              <label>
+                <span>Bot</span>
+                <input type="text" value="${escapeHtml(chat.bot_name || "")}" disabled>
+              </label>
+
+              <label>
+                <span>Title</span>
+                <input type="text" value="${escapeHtml(chat.title || "")}" disabled>
+              </label>
+
+              <label>
+                <span>Visibility</span>
+                <input type="text" value="${escapeHtml(chat.visibility || "")}" disabled>
+              </label>
+
+              <label>
+                <span>Created</span>
+                <input type="text" value="${escapeHtml(chat.created_at || "")}" disabled>
+              </label>
+            </div>
+
+            <div class="admin-actions">
+              <button class="action-btn danger delete-chat-btn">Удалить чат</button>
+            </div>
+          </div>
+        `;
+
+          card
+            .querySelector(".delete-chat-btn")
+            .addEventListener("click", async () => {
+              if (!confirm(`Удалить чат #${chat.id}?`)) return;
+
+              try {
+                const res = await fetch(
+                  `http://localhost:3000/admin/chats/${chat.id}`,
+                  {
+                    method: "DELETE",
+                    headers: authHeaders(),
+                  },
+                );
+
+                const data = await res.json();
+                alert(data.message || "Готово");
+                if (res.ok) loadChats();
+              } catch (error) {
+                console.error("DELETE CHAT ERROR:", error);
+                alert("Ошибка удаления чата");
+              }
+            });
+
+          chatsList.appendChild(card);
+        });
+      }
+
+      function applyFilters() {
+        const q = globalSearch.value.trim().toLowerCase();
+
+        const filteredUsers = allUsers.filter(
+          (item) =>
+            !q ||
+            [item.id, item.username, item.email, item.role_id]
+              .join(" ")
+              .toLowerCase()
+              .includes(q),
+        );
+
+        const filteredBots = allBots.filter(
+          (item) =>
+            !q ||
+            [item.id, item.name, item.author_name, item.visibility, item.tags]
+              .join(" ")
+              .toLowerCase()
+              .includes(q),
+        );
+
+        const filteredChats = allChats.filter(
+          (item) =>
+            !q ||
+            [
+              item.id,
+              item.user_name,
+              item.bot_name,
+              item.title,
+              item.visibility,
+            ]
+              .join(" ")
+              .toLowerCase()
+              .includes(q),
+        );
+
+        renderUsers(filteredUsers);
+        renderBots(filteredBots);
+        renderChats(filteredChats);
+      }
+
+      globalSearch.addEventListener("input", applyFilters);
+
+      async function loadUsers() {
+        try {
+          const res = await fetch("http://localhost:3000/admin/users", {
+            headers: authHeaders(),
+          });
+
+          const data = await res.json();
+          allUsers = Array.isArray(data) ? data : [];
+          applyFilters();
+        } catch (error) {
+          console.error("LOAD USERS ERROR:", error);
+          usersEmpty.style.display = "block";
+          usersEmpty.textContent = "Ошибка загрузки пользователей";
+        }
+      }
+
+      async function loadBots() {
+        try {
+          const res = await fetch("http://localhost:3000/admin/bots", {
+            headers: authHeaders(),
+          });
+
+          const data = await res.json();
+          allBots = Array.isArray(data) ? data : [];
+          applyFilters();
+        } catch (error) {
+          console.error("LOAD BOTS ERROR:", error);
+          botsEmpty.style.display = "block";
+          botsEmpty.textContent = "Ошибка загрузки ботов";
+        }
+      }
+
+      async function loadChats() {
+        try {
+          const res = await fetch("http://localhost:3000/admin/chats", {
+            headers: authHeaders(),
+          });
+
+          const data = await res.json();
+          allChats = Array.isArray(data) ? data : [];
+          applyFilters();
+        } catch (error) {
+          console.error("LOAD CHATS ERROR:", error);
+          chatsEmpty.style.display = "block";
+          chatsEmpty.textContent = "Ошибка загрузки чатов";
+        }
+      }
+
+      loadUsers();
+      loadBots();
+      loadChats();
+    </script>
+  </body>
+</html>

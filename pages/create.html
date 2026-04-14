@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Создание персонажа — Charitor.ai</title>
+    <link rel="stylesheet" href="/css/general.css" />
+    <link rel="stylesheet" href="/css/create.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-left">
+        <a href="/pages/index.html" class="brand">Charitor.ai</a>
+      </div>
+
+      <div class="topbar-center">
+        <form class="search-box" action="#" method="get">
+          <input type="text" placeholder="Поиск..." />
+          <button type="submit" aria-label="Поиск">⌕</button>
+        </form>
+      </div>
+
+      <div class="topbar-right">
+        <button class="icon-btn" type="button" aria-label="Чаты">💬</button>
+        <button class="icon-btn" type="button" aria-label="Уведомления">
+          🔔
+        </button>
+        <a href="/pages/profile.html" class="profile-mini" aria-label="Профиль">
+          <img src="/img/icon.svg" alt="avatar" />
+        </a>
+      </div>
+    </header>
+
+    <main class="create-shell">
+      <div class="create-layout">
+        <section class="create-main">
+          <div class="page-head">
+            <h1 class="page-title">Создание персонажа</h1>
+            <p class="page-subtitle">
+              Настрой внешний вид, описание, характер и стартовое сообщение
+              персонажа.
+            </p>
+          </div>
+
+          <form id="createCharacterForm" class="create-form">
+            <section class="form-section">
+              <div class="section-title-row">
+                <h2>Основное</h2>
+              </div>
+
+              <div class="form-group">
+                <label for="characterImage">Изображение</label>
+
+                <div class="upload-box">
+                  <label for="characterImage" class="upload-label">
+                    <span class="upload-icon">⤴</span>
+                    <span class="upload-text"
+                      >Нажмите или перетащите изображение сюда</span
+                    >
+                    <span class="upload-hint">PNG, JPG, WEBP</span>
+                  </label>
+                  <input
+                    type="file"
+                    id="characterImage"
+                    accept="image/*"
+                    hidden
+                  />
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="characterName">Имя персонажа</label>
+                <input
+                  type="text"
+                  id="characterName"
+                  class="form-input"
+                  placeholder="Введите имя персонажа"
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="characterDesc">Краткое описание</label>
+                <textarea
+                  id="characterDesc"
+                  class="form-textarea medium"
+                  placeholder="Краткое описание персонажа"
+                ></textarea>
+              </div>
+            </section>
+
+            <section class="form-section">
+              <div class="section-title-row">
+                <h2>Биография</h2>
+              </div>
+
+              <div class="form-group">
+                <label for="characterBio">Биография персонажа</label>
+
+                <div class="editor-box">
+                  <div class="editor-toolbar">
+                    <button
+                      type="button"
+                      data-command="formatBlock"
+                      data-value="p"
+                    >
+                      Абзац
+                    </button>
+                    <button type="button" data-command="bold"><b>B</b></button>
+                    <button type="button" data-command="italic">
+                      <i>I</i>
+                    </button>
+                    <button type="button" data-command="underline">
+                      <u>U</u>
+                    </button>
+                    <button type="button" data-command="removeFormat">⌫</button>
+                    <button type="button" data-command="insertUnorderedList">
+                      •
+                    </button>
+                    <button type="button" data-command="justifyLeft">☰</button>
+                    <button type="button" data-command="justifyCenter">
+                      ≡
+                    </button>
+                    <button type="button" data-command="justifyRight">↦</button>
+                    <button type="button" id="bioLinkBtn">🔗</button>
+                  </div>
+
+                  <div
+                    id="characterBio"
+                    class="editable-box"
+                    contenteditable="true"
+                    spellcheck="false"
+                  >
+                    Hi, I'm Hanna
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="form-section">
+              <div class="section-title-row">
+                <h2>Теги и настройки</h2>
+              </div>
+
+              <div class="form-group">
+                <label for="tagInput">Теги</label>
+
+                <div class="tag-box">
+                  <input
+                    type="text"
+                    id="tagInput"
+                    class="form-input"
+                    placeholder="Добавьте тег"
+                  />
+                  <button type="button" id="addTagBtn" class="small-btn">
+                    +
+                  </button>
+                </div>
+
+                <div id="tagsList" class="tags-list"></div>
+              </div>
+
+              <div class="form-group">
+                <label for="characterRules">Настройки / предупреждения</label>
+                <textarea
+                  id="characterRules"
+                  class="form-textarea large"
+                  placeholder="Укажите настройки, предупреждения, ограничения, возрастной рейтинг и т.д."
+                ></textarea>
+              </div>
+            </section>
+
+            <section class="form-section">
+              <div class="section-title-row">
+                <h2>Поведение персонажа</h2>
+              </div>
+
+              <div class="form-group">
+                <label for="characterScenario">Сценарий</label>
+                <textarea
+                  id="characterScenario"
+                  class="form-textarea medium"
+                  placeholder="Опишите контекст и обстановку разговоров вашего персонажа"
+                ></textarea>
+              </div>
+
+              <div class="form-group">
+                <label for="firstMessage">Первое сообщение вашего бота</label>
+                <textarea
+                  id="firstMessage"
+                  class="form-textarea medium"
+                  placeholder="Введите первое сообщение"
+                ></textarea>
+              </div>
+            </section>
+
+            <div class="submit-row">
+              <button type="submit" class="create-btn">
+                Создать персонажа
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <aside class="preview-sidebar">
+          <div class="preview-sticky">
+            <div class="preview-header">
+              <h2>Предпросмотр</h2>
+            </div>
+
+            <article class="preview-card">
+              <div class="preview-image">
+                <img id="previewImage" src="/img/icon.svg" alt="preview" />
+              </div>
+
+              <div class="preview-body">
+                <div class="preview-top">
+                  <div>
+                    <h3 id="previewName">Aurelia</h3>
+                    <p id="previewSubtitle">Персонаж</p>
+                  </div>
+                  <span class="heart">❤</span>
+                </div>
+
+                <div class="preview-meta">
+                  <span>Автор: <span id="previewAuthor">Вы</span></span>
+                </div>
+
+                <p id="previewDescription" class="preview-description">
+                  Описание персонажа появится здесь
+                </p>
+
+                <div id="previewTags" class="preview-tags">
+                  <span>Нет тегов</span>
+                </div>
+
+                <div class="preview-actions">
+                  <button type="button" class="preview-btn primary">
+                    Продолжить общение
+                  </button>
+                  <button type="button" class="preview-btn">Начать чат</button>
+                </div>
+              </div>
+            </article>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <script>
+      const savedUser = JSON.parse(localStorage.getItem("user"));
+      if (!savedUser) {
+        window.location.href = "/pages/autorization.html";
+      }
+
+      const params = new URLSearchParams(window.location.search);
+      const editBotId = params.get("id");
+      const isEditMode = Boolean(editBotId);
+
+      const form = document.getElementById("createCharacterForm");
+      const imageInput = document.getElementById("characterImage");
+      const uploadLabel = document.querySelector(".upload-label");
+
+      const nameInput = document.getElementById("characterName");
+      const descInput = document.getElementById("characterDesc");
+      const bioEditor = document.getElementById("characterBio");
+      const rulesInput = document.getElementById("characterRules");
+      const scenarioInput = document.getElementById("characterScenario");
+      const firstMessageInput = document.getElementById("firstMessage");
+
+      const previewImage = document.getElementById("previewImage");
+      const previewName = document.getElementById("previewName");
+      const previewSubtitle = document.getElementById("previewSubtitle");
+      const previewDescription = document.getElementById("previewDescription");
+      const previewAuthor = document.getElementById("previewAuthor");
+      const previewTags = document.getElementById("previewTags");
+
+      const tagInput = document.getElementById("tagInput");
+      const addTagBtn = document.getElementById("addTagBtn");
+      const tagsList = document.getElementById("tagsList");
+      const submitBtn = document.querySelector(".create-btn");
+      const pageTitle = document.querySelector(".page-title");
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "create-btn delete-btn";
+      deleteBtn.textContent = "Удалить бота";
+      deleteBtn.style.display = "none";
+
+      document.querySelector(".submit-row").appendChild(deleteBtn);
+
+      const tags = [];
+      let currentAvatarValue = "";
+
+      if (savedUser?.username) {
+        previewAuthor.textContent = savedUser.username;
+      }
+
+      if (isEditMode) {
+        pageTitle.textContent = "Редактирование персонажа";
+        submitBtn.textContent = "Сохранить изменения";
+        deleteBtn.style.display = "inline-flex";
+      }
+
+      document
+        .querySelectorAll(".editor-toolbar button[data-command]")
+        .forEach((button) => {
+          button.addEventListener("click", () => {
+            const command = button.dataset.command;
+            const value = button.dataset.value || null;
+
+            bioEditor.focus();
+            document.execCommand(command, false, value);
+          });
+        });
+
+      document.getElementById("bioLinkBtn").addEventListener("click", () => {
+        const url = prompt("Введите ссылку:");
+        if (!url) return;
+
+        bioEditor.focus();
+        document.execCommand("createLink", false, url);
+      });
+
+      nameInput.addEventListener("input", () => {
+        previewName.textContent = nameInput.value.trim() || "Aurelia";
+      });
+
+      descInput.addEventListener("input", () => {
+        const text = descInput.value.trim();
+        previewDescription.textContent =
+          text || "Описание персонажа появится здесь";
+        previewSubtitle.textContent = text ? "Персонаж" : "Персонаж";
+      });
+
+      imageInput.addEventListener("change", () => {
+        const file = imageInput.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          previewImage.src = e.target.result;
+          currentAvatarValue = e.target.result;
+        };
+        reader.readAsDataURL(file);
+
+        const uploadText = uploadLabel.querySelector(".upload-text");
+        if (uploadText) {
+          uploadText.textContent = file.name;
+        }
+      });
+
+      function renderTags() {
+        tagsList.innerHTML = "";
+        previewTags.innerHTML = "";
+
+        if (!tags.length) {
+          previewTags.innerHTML = "<span>Нет тегов</span>";
+          return;
+        }
+
+        tags.forEach((tag, index) => {
+          const tagItem = document.createElement("div");
+          tagItem.className = "tag-item";
+          tagItem.innerHTML = `
+          <span>${tag}</span>
+          <button type="button" data-index="${index}">×</button>
+        `;
+          tagsList.appendChild(tagItem);
+
+          const previewTag = document.createElement("span");
+          previewTag.textContent = tag;
+          previewTags.appendChild(previewTag);
+        });
+
+        tagsList.querySelectorAll("button").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const index = Number(btn.dataset.index);
+            tags.splice(index, 1);
+            renderTags();
+          });
+        });
+      }
+
+      addTagBtn.addEventListener("click", () => {
+        const value = tagInput.value.trim();
+        if (!value) return;
+        if (!tags.includes(value)) {
+          tags.push(value);
+        }
+        tagInput.value = "";
+        renderTags();
+      });
+
+      tagInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          addTagBtn.click();
+        }
+      });
+
+      async function loadBotForEdit() {
+        if (!isEditMode) return;
+
+        try {
+          const response = await fetch(
+            `http://localhost:3000/bot/${editBotId}`,
+          );
+          const text = await response.text();
+
+          let bot;
+          try {
+            bot = JSON.parse(text);
+          } catch {
+            console.error("RAW RESPONSE:", text);
+            alert("Сервер вернул не JSON при загрузке бота");
+            return;
+          }
+
+          if (!response.ok) {
+            alert(bot.message || "Ошибка загрузки бота");
+            return;
+          }
+
+          if (Number(bot.creator_id) !== Number(savedUser.id)) {
+            alert("Вы не можете редактировать этого бота");
+            window.location.href = "/pages/profile.html";
+            return;
+          }
+
+          nameInput.value = bot.name || "";
+          descInput.value = bot.short_description || "";
+          bioEditor.innerHTML = bot.full_description || "";
+          rulesInput.value = "";
+          scenarioInput.value = bot.system_prompt || "";
+          firstMessageInput.value = bot.greeting_message || "";
+
+          previewName.textContent = bot.name || "Aurelia";
+          previewDescription.textContent =
+            bot.short_description || "Описание персонажа появится здесь";
+
+          if (bot.avatar_url) {
+            previewImage.src = bot.avatar_url;
+            currentAvatarValue = bot.avatar_url;
+
+            const uploadText = uploadLabel.querySelector(".upload-text");
+            if (uploadText) {
+              uploadText.textContent = "Изображение загружено";
+            }
+          }
+
+          tags.length = 0;
+          if (bot.tags) {
+            bot.tags
+              .split(",")
+              .map((tag) => tag.trim())
+              .filter(Boolean)
+              .forEach((tag) => tags.push(tag));
+          }
+
+          renderTags();
+        } catch (error) {
+          console.error("Ошибка загрузки бота для редактирования:", error);
+          alert("Ошибка загрузки данных бота");
+        }
+      }
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        if (!savedUser || !savedUser.id) {
+          alert("Вы не авторизованы");
+          return;
+        }
+
+        const characterData = {
+          user_id: savedUser.id,
+          creator_id: savedUser.id,
+          name: nameInput.value.trim(),
+          short_description: descInput.value.trim(),
+          full_description: bioEditor.innerHTML.trim(),
+          avatar_url: currentAvatarValue || "",
+          greeting_message: firstMessageInput.value.trim(),
+          system_prompt: scenarioInput.value.trim(),
+          visibility: "public",
+          tags: tags.join(", "),
+        };
+
+        if (!characterData.name) {
+          alert("Введите имя персонажа");
+          return;
+        }
+
+        try {
+          let response;
+
+          if (isEditMode) {
+            response = await fetch(`http://localhost:3000/bot/${editBotId}`, {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(characterData),
+            });
+          } else {
+            response = await fetch("http://localhost:3000/create-bot", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(characterData),
+            });
+          }
+
+          const text = await response.text();
+          let data;
+
+          try {
+            data = JSON.parse(text);
+          } catch {
+            console.error("RAW RESPONSE:", text);
+            alert("Сервер вернул не JSON");
+            return;
+          }
+
+          alert(data.message);
+
+          if (response.ok) {
+            window.location.href = "/pages/profile.html?v=" + Date.now();
+          }
+        } catch (error) {
+          console.error("Ошибка сохранения персонажа:", error);
+          alert("Ошибка соединения с сервером");
+        }
+      });
+
+      deleteBtn.addEventListener("click", async () => {
+        if (!isEditMode) return;
+
+        const ok = confirm("Удалить этого бота?");
+        if (!ok) return;
+
+        try {
+          const response = await fetch(
+            `http://localhost:3000/bot/${editBotId}`,
+            {
+              method: "DELETE",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                user_id: savedUser.id,
+              }),
+            },
+          );
+
+          const text = await response.text();
+          let data;
+
+          try {
+            data = JSON.parse(text);
+          } catch {
+            console.error("RAW RESPONSE:", text);
+            alert("Сервер вернул не JSON");
+            return;
+          }
+
+          alert(data.message);
+
+          if (response.ok) {
+            window.location.href = "/pages/profile.html?v=" + Date.now();
+          }
+        } catch (error) {
+          console.error("Ошибка удаления:", error);
+          alert("Ошибка удаления бота");
+        }
+      });
+
+      renderTags();
+      loadBotForEdit();
+    </script>
+  </body>
+</html>

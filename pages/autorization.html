@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Авторизация</title>
+    <link rel="stylesheet" href="/css/general.css" />
+    <link rel="stylesheet" href="/css/autorization.css" />
+  </head>
+
+  <body>
+    <header>
+      <div class="container">
+        <nav>
+          <div class="logo">
+            <img src="/img/icon.svg" alt="logo" />
+            <a href="/pages/index.html">Charitor.ai</a>
+          </div>
+
+          <ul class="nav">
+            <li><a href="/pages/register.html">Зарегистрироваться</a></li>
+            <li><a href="/pages/autorization.html">Войти</a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <main class="auth-page">
+      <div class="auth-card">
+        <h1>Авторизация</h1>
+
+        <form class="auth-form" id="loginForm">
+          <label for="email">Email</label>
+          <input type="email" id="email" placeholder="Введите email" required />
+
+          <label for="password">Пароль</label>
+          <input
+            type="password"
+            id="password"
+            placeholder="Введите пароль"
+            required
+          />
+
+          <button type="submit" class="btn-main">Войти</button>
+
+          <p class="login-text">Нет аккаунта?</p>
+
+          <a href="/pages/register.html" class="btn-second"> Регистрация </a>
+        </form>
+      </div>
+    </main>
+
+    <script>
+      const loginForm = document.getElementById("loginForm");
+
+      loginForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const email = document.getElementById("email").value.trim();
+        const password = document.getElementById("password").value.trim();
+
+        if (!email || !password) {
+          alert("Введите email и пароль");
+          return;
+        }
+
+        try {
+          const response = await fetch("http://localhost:3000/login", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ email, password }),
+          });
+
+          const data = await response.json();
+
+          alert(data.message);
+
+          if (response.ok) {
+            localStorage.setItem("user", JSON.stringify(data.user));
+
+            if (data.user.role_id === 2) {
+              window.location.href = "/pages/admin.html";
+            } else {
+              window.location.href = "/pages/main.html";
+            }
+          }
+        } catch (error) {
+          console.error(error);
+          alert("Ошибка соединения с сервером");
+        }
+      });
+    </script>
+  </body>
+</html>

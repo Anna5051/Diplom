@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bot — Charitor.ai</title>
+    <link rel="stylesheet" href="/css/general.css" />
+    <link rel="stylesheet" href="/css/bot.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-left">
+        <a href="/pages/index.html" class="brand">Charitor.ai</a>
+
+        <form class="search-box" action="#" method="get">
+          <input type="text" placeholder="Поиск..." />
+          <button type="submit" aria-label="Поиск">⌕</button>
+        </form>
+      </div>
+
+      <div class="topbar-right">
+        <button class="icon-btn" type="button" aria-label="Чаты">💬</button>
+        <button class="icon-btn" type="button" aria-label="Уведомления">
+          🔔
+        </button>
+
+        <a href="/pages/profile.html" class="profile-mini" aria-label="Профиль">
+          <img src="/img/icon.svg" alt="avatar" />
+        </a>
+      </div>
+    </header>
+
+    <main class="bot-page">
+      <section class="bot-hero-card">
+        <div class="bot-hero-left">
+          <img
+            src="/img/icon.svg"
+            alt="bot avatar"
+            class="bot-main-image"
+            id="botAvatar"
+          />
+        </div>
+
+        <div class="bot-hero-right">
+          <div class="bot-title-row">
+            <div class="bot-title-block">
+              <h1 id="botName">Загрузка...</h1>
+              <p class="bot-subtitle" id="botSubtitle">Персонаж</p>
+              <p class="bot-author">
+                Автор:
+                <span id="botAuthor">...</span>
+              </p>
+            </div>
+
+            <button
+              class="favorite-btn"
+              type="button"
+              aria-label="Добавить в избранное"
+            >
+              ❤
+            </button>
+          </div>
+
+          <div class="bot-short-description" id="botShortDescription">
+            Загрузка описания...
+          </div>
+
+          <div class="bot-main-actions">
+            <button class="primary-action" type="button" id="startChatBtn">
+              Начать чат
+            </button>
+
+            <button
+              class="secondary-action"
+              type="button"
+              id="editBotBtn"
+              style="display: none"
+            >
+              Редактировать
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="story-section">
+        <div class="story-left">
+          <h2>Описание сюжета</h2>
+
+          <div class="story-box" id="storyBox">Загрузка сюжета...</div>
+
+          <div class="story-action">
+            <button type="button" class="secondary-action" id="toggleStoryBtn">
+              Открыть полностью
+            </button>
+          </div>
+        </div>
+
+        <aside class="tags-card">
+          <h3>Теги</h3>
+
+          <div class="tags-list" id="tagsList">
+            <span class="tag">Нет тегов</span>
+          </div>
+        </aside>
+      </section>
+
+      <section class="full-history-section">
+        <h2>Полная история персонажа</h2>
+
+        <div class="accordion">
+          <details class="accordion-item" open>
+            <summary>Сюжет</summary>
+            <div class="accordion-content" id="accordionPlot">Нет данных</div>
+          </details>
+
+          <details class="accordion-item">
+            <summary>Личность</summary>
+            <div class="accordion-content" id="accordionPersonality">
+              Нет данных
+            </div>
+          </details>
+
+          <details class="accordion-item">
+            <summary>Начальное сообщение</summary>
+            <div class="accordion-content" id="accordionGreeting">
+              Нет данных
+            </div>
+          </details>
+
+          <details class="accordion-item">
+            <summary>Системный промпт</summary>
+            <div class="accordion-content" id="accordionSystemPrompt">
+              Нет данных
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <section class="comments-section">
+        <h2>Комментарии (0)</h2>
+
+        <div class="comments-list">
+          <article class="comment-card">
+            <img src="/img/icon.svg" alt="user" class="comment-avatar" />
+
+            <div class="comment-body">
+              <div class="comment-top">
+                <strong>Система</strong>
+                <span>сейчас</span>
+              </div>
+
+              <p>Комментарии пока не подключены.</p>
+            </div>
+
+            <div class="comment-actions">
+              <button type="button" aria-label="Дизлайк">👎</button>
+              <button type="button" aria-label="Лайк">👍</button>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const savedUser = JSON.parse(localStorage.getItem("user"));
+      const params = new URLSearchParams(window.location.search);
+      const botId = params.get("id");
+
+      const botName = document.getElementById("botName");
+      const botSubtitle = document.getElementById("botSubtitle");
+      const botAuthor = document.getElementById("botAuthor");
+      const botAvatar = document.getElementById("botAvatar");
+      const botShortDescription = document.getElementById(
+        "botShortDescription",
+      );
+      const storyBox = document.getElementById("storyBox");
+      const tagsList = document.getElementById("tagsList");
+      const accordionPlot = document.getElementById("accordionPlot");
+      const accordionPersonality = document.getElementById(
+        "accordionPersonality",
+      );
+      const accordionGreeting = document.getElementById("accordionGreeting");
+      const accordionSystemPrompt = document.getElementById(
+        "accordionSystemPrompt",
+      );
+      const toggleStoryBtn = document.getElementById("toggleStoryBtn");
+      const startChatBtn = document.getElementById("startChatBtn");
+      const editBotBtn = document.getElementById("editBotBtn");
+
+      let storyExpanded = false;
+      let fullStoryText = "";
+      let currentBot = null;
+
+      function setImageWithFallback(
+        imgElement,
+        value,
+        fallback = "/img/icon.svg",
+      ) {
+        if (value && String(value).trim()) {
+          imgElement.src = value;
+        } else {
+          imgElement.src = fallback;
+        }
+
+        imgElement.onerror = () => {
+          imgElement.src = fallback;
+        };
+      }
+
+      function setTags(tagsString) {
+        tagsList.innerHTML = "";
+
+        if (!tagsString || !tagsString.trim()) {
+          tagsList.innerHTML = `<span class="tag">Нет тегов</span>`;
+          return;
+        }
+
+        const tags = tagsString
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean);
+
+        if (!tags.length) {
+          tagsList.innerHTML = `<span class="tag">Нет тегов</span>`;
+          return;
+        }
+
+        tags.forEach((tag, index) => {
+          const span = document.createElement("span");
+          span.className = index === 0 ? "tag active" : "tag";
+          span.textContent = tag;
+          tagsList.appendChild(span);
+        });
+      }
+
+      function setCollapsedStory(text) {
+        fullStoryText = text || "Описание отсутствует";
+
+        if (fullStoryText.length > 400) {
+          storyBox.textContent = fullStoryText.slice(0, 400) + "...";
+          toggleStoryBtn.style.display = "inline-block";
+          toggleStoryBtn.textContent = "Открыть полностью";
+          storyExpanded = false;
+        } else {
+          storyBox.textContent = fullStoryText;
+          toggleStoryBtn.style.display = "none";
+        }
+      }
+
+      toggleStoryBtn.addEventListener("click", () => {
+        if (!fullStoryText) return;
+
+        if (storyExpanded) {
+          storyBox.textContent = fullStoryText.slice(0, 400) + "...";
+          toggleStoryBtn.textContent = "Открыть полностью";
+          storyExpanded = false;
+        } else {
+          storyBox.textContent = fullStoryText;
+          toggleStoryBtn.textContent = "Скрыть";
+          storyExpanded = true;
+        }
+      });
+
+      function showOwnerButtons(bot) {
+        if (!savedUser || !savedUser.id) return;
+        if (!bot || Number(bot.creator_id) !== Number(savedUser.id)) return;
+
+        editBotBtn.style.display = "inline-flex";
+      }
+
+      async function loadBot() {
+        if (!botId) {
+          botName.textContent = "Бот не найден";
+          botAuthor.textContent = "---";
+          botShortDescription.textContent = "В адресе страницы нет id бота.";
+          storyBox.textContent = "Нет данных.";
+          tagsList.innerHTML = `<span class="tag">Нет id</span>`;
+          toggleStoryBtn.style.display = "none";
+          return;
+        }
+
+        try {
+          const response = await fetch(`http://localhost:3000/bot/${botId}`);
+
+          if (!response.ok) {
+            const text = await response.text();
+            console.error("RAW RESPONSE:", text);
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const bot = await response.json();
+          currentBot = bot;
+
+          botName.textContent = bot.name || "Без имени";
+          botSubtitle.textContent = "Персонаж";
+          botAuthor.textContent = bot.author_name || "Неизвестно";
+
+          setImageWithFallback(botAvatar, bot.avatar_url);
+
+          botShortDescription.textContent =
+            bot.short_description || "Краткое описание отсутствует";
+
+          setCollapsedStory(
+            bot.full_description || "Описание сюжета отсутствует",
+          );
+          setTags(bot.tags);
+
+          accordionPlot.textContent = bot.full_description || "Сюжет не указан";
+          accordionPersonality.textContent =
+            bot.short_description || "Личность не указана";
+          accordionGreeting.textContent =
+            bot.greeting_message || "Начальное сообщение не указано";
+          accordionSystemPrompt.textContent =
+            bot.system_prompt || "Системный промпт не указан";
+
+          showOwnerButtons(bot);
+        } catch (error) {
+          console.error("Ошибка загрузки бота:", error);
+          botName.textContent = "Ошибка загрузки";
+          botAuthor.textContent = "---";
+          botShortDescription.textContent =
+            "Не удалось загрузить данные персонажа.";
+          storyBox.textContent = "Ошибка загрузки.";
+          tagsList.innerHTML = `<span class="tag">Ошибка</span>`;
+          toggleStoryBtn.style.display = "none";
+        }
+      }
+
+      startChatBtn.addEventListener("click", () => {
+        if (!botId) {
+          alert("ID бота не найден");
+          return;
+        }
+
+        window.location.href = `/pages/chat.html?id=${botId}`;
+      });
+
+      editBotBtn.addEventListener("click", () => {
+        if (!botId) return;
+        window.location.href = `/pages/create.html?id=${botId}`;
+      });
+
+      loadBot();
+    </script>
+  </body>
+</html>
