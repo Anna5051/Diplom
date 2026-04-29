@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>История чатов — Charitor.ai</title>
+  <link rel="stylesheet" href="../css/general.css" />
+  <link rel="stylesheet" href="../css/history.css" />
+</head>
+<body>
+  <header class="history-topbar">
+    <a href="./main.html" class="brand">Charitor.ai</a>
+
+    <form class="history-search" id="searchForm">
+      <input id="searchInput" type="text" placeholder="Поиск по чатам..." />
+      <button type="submit">⌕</button>
+    </form>
+
+    <div class="topbar-actions">
+      <a href="./search.html" class="top-btn">Все персонажи</a>
+      <a href="./profile.html" class="profile-mini">
+        <img id="topAvatar" src="../img/icon.svg" alt="avatar" />
+      </a>
+    </div>
+  </header>
+
+  <main class="history-page">
+    <section class="history-hero">
+      <div>
+        <span class="hero-badge">История общения</span>
+        <h1>Ваши чаты</h1>
+        <p>Продолжайте диалоги с персонажами и быстро находите нужные истории.</p>
+      </div>
+
+      <div class="stats-card">
+        <strong id="chatsCount">0</strong>
+        <span>чатов</span>
+      </div>
+    </section>
+
+    <section class="history-panel">
+      <aside class="history-sidebar">
+        <button class="side-tab active" type="button" data-filter="all">Все чаты</button>
+        <button class="side-tab" type="button" data-filter="recent">Недавние</button>
+        <button class="side-tab" type="button" data-filter="withText">С описанием</button>
+
+        <div class="side-divider"></div>
+
+        <label class="side-label" for="sortSelect">Сортировка</label>
+        <select id="sortSelect">
+          <option value="latest">Последние</option>
+          <option value="oldest">Старые</option>
+          <option value="name">По имени</option>
+        </select>
+
+        <a href="./search.html" class="create-chat-link">Найти персонажа</a>
+      </aside>
+
+      <section class="history-content">
+        <div class="content-head">
+          <div>
+            <h2>Список чатов</h2>
+            <p id="foundText">Найдено: 0</p>
+          </div>
+
+          <button class="refresh-btn" id="refreshBtn" type="button">Обновить</button>
+        </div>
+
+        <div class="status-box" id="statusBox">Загрузка истории...</div>
+
+        <div class="chats-grid" id="chatsGrid"></div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const savedUser = JSON.parse(localStorage.getItem("user") || "null");
+
+    if (!savedUser || !savedUser.id) {
+      window.location.href = "./autorization.html";
+    }
+
+    const searchForm = document.getElementById("searchForm");
+    const searchInput = document.getElementById("searchInput");
+    const sortSelect = document.getElementById("sortSelect");
+    const chatsGrid = document.getElementById("chatsGrid");
+    const statusBox = document.getElementById("statusBox");
+    const foundText = document.getElementById("foundText");
+    const chatsCount = document.getElementById("chatsCount");
+    const refreshBtn = document.getElementById("refreshBtn");
+    const topAvatar = document.getElementById("topAvatar");
+
+    let chats = [];
+    let activeFilter = "all";
+
+    if (savedUser?.avatar_url) {
+      topAvatar.src = savedUser.avatar_url;
+    }
+
+    function escapeHtml(value) {
+      const div = document.createElement("div");
+      div.textContent = value || "";
+      return div.innerHTML;
+    }
+
+    function normalize(value) {
+      return String(value || "").toLowerCase().trim();
+    }
+
+    function formatDate(value) {
+      if (!value) return "Без даты";
+
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "Без даты";
+
+      return date.toLocaleDateString("ru-RU", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
+      });
+    }
+
+    function getAvatar(chat) {
+      return chat.avatar_url || chat.bot_avatar || "../img/icon.svg";
+    }
+
+    function getChatLink(chat) {
+      if (chat.bot_id) return `./chat.html?id=${chat.bot_id}`;
+      return `./chat.html?chat_id=${chat.id}`;
+    }
+
+    function getBotLink(chat) {
+      if (chat.bot_id) return `./bot.html?id=${chat.bot_id}`;
+      return "#";
+    }
+
+    function renderChats(items) {
+      chatsGrid.innerHTML = "";
+      foundText.textContent = `Найдено: ${items.length}`;
+      chatsCount.textContent = items.length;
+
+      if (!items.length) {
+        statusBox.style.display = "block";
+        statusBox.textContent = "Чаты не найдены";
+        return;
+      }
+
+      statusBox.style.display = "none";
+
+      items.forEach((chat) => {
+        const card = document.createElement("article");
+        card.className = "chat-history-card";
+
+        const title = chat.bot_name || chat.title || "Без названия";
+        const summary =
+          chat.summary ||
+          chat.last_message ||
+          `Последний чат с персонажем ${title}`;
+
+        card.innerHTML = `
+          <a href="${getChatLink(chat)}" class="chat-avatar">
+            <img src="${getAvatar(chat)}" alt="${escapeHtml(title)}" />
+          </a>
+
+          <div class="chat-info">
+            <div class="chat-title-row">
+              <div>
+                <h3>
+                  <a href="${getChatLink(chat)}">${escapeHtml(title)}</a>
+                </h3>
+                <p>${formatDate(chat.updated_at || chat.created_at)}</p>
+              </div>
+              <span class="chat-badge">${escapeHtml(chat.visibility || "private")}</span>
+            </div>
+
+            <p class="chat-summary">${escapeHtml(summary)}</p>
+
+            <div class="chat-meta">
+              <span>Chat ID: ${escapeHtml(String(chat.id || ""))}</span>
+              <span>Bot ID: ${escapeHtml(String(chat.bot_id || "---"))}</span>
+            </div>
+
+            <div class="chat-actions">
+              <a href="${getChatLink(chat)}" class="card-btn primary">Продолжить</a>
+              <a href="${getBotLink(chat)}" class="card-btn">Персонаж</a>
+              <button class="card-btn danger" type="button" data-delete="${chat.id}">
+                Удалить
+              </button>
+            </div>
+          </div>
+        `;
+
+        chatsGrid.appendChild(card);
+      });
+
+      chatsGrid.querySelectorAll("[data-delete]").forEach((button) => {
+        button.addEventListener("click", () => {
+          deleteChat(button.dataset.delete);
+        });
+      });
+    }
+
+    function applyFilters() {
+      const query = normalize(searchInput.value);
+      const sort = sortSelect.value;
+
+      let filtered = [...chats];
+
+      if (query) {
+        filtered = filtered.filter((chat) => {
+          const text = normalize(`
+            ${chat.title}
+            ${chat.bot_name}
+            ${chat.summary}
+            ${chat.visibility}
+          `);
+
+          return text.includes(query);
+        });
+      }
+
+      if (activeFilter === "recent") {
+        const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+
+        filtered = filtered.filter((chat) => {
+          const time = new Date(chat.updated_at || chat.created_at || 0).getTime();
+          return time >= weekAgo;
+        });
+      }
+
+      if (activeFilter === "withText") {
+        filtered = filtered.filter((chat) =>
+          String(chat.summary || chat.last_message || "").trim().length > 0
+        );
+      }
+
+      if (sort === "latest") {
+        filtered.sort((a, b) => {
+          const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
+          const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
+          return dateB - dateA;
+        });
+      }
+
+      if (sort === "oldest") {
+        filtered.sort((a, b) => {
+          const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
+          const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
+          return dateA - dateB;
+        });
+      }
+
+      if (sort === "name") {
+        filtered.sort((a, b) =>
+          String(a.bot_name || a.title || "").localeCompare(
+            String(b.bot_name || b.title || "")
+          )
+        );
+      }
+
+      renderChats(filtered);
+    }
+
+    async function loadChats() {
+      statusBox.style.display = "block";
+      statusBox.textContent = "Загрузка истории...";
+      chatsGrid.innerHTML = "";
+
+      try {
+        const response = await fetch(`http://localhost:3000/my-chats/${savedUser.id}`);
+
+        if (!response.ok) {
+          throw new Error("Ошибка загрузки чатов");
+        }
+
+        const data = await response.json();
+        chats = Array.isArray(data) ? data : [];
+        applyFilters();
+      } catch (error) {
+        console.error(error);
+        statusBox.style.display = "block";
+        statusBox.textContent =
+          "Не удалось загрузить историю. Проверь server.js и маршрут /my-chats/:userId.";
+      }
+    }
+
+    async function deleteChat(chatId) {
+      const ok = confirm("Удалить этот чат?");
+      if (!ok) return;
+
+      try {
+        const response = await fetch(`http://localhost:3000/chat/${chatId}`, {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            user_id: savedUser.id
+          })
+        });
+
+        const text = await response.text();
+        let data = {};
+
+        try {
+          data = JSON.parse(text);
+        } catch {
+          console.error("RAW RESPONSE:", text);
+        }
+
+        if (!response.ok) {
+          throw new Error(data.message || "Ошибка удаления чата");
+        }
+
+        chats = chats.filter((chat) => Number(chat.id) !== Number(chatId));
+        applyFilters();
+      } catch (error) {
+        console.error(error);
+        alert(error.message);
+      }
+    }
+
+    searchForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      applyFilters();
+    });
+
+    searchInput.addEventListener("input", applyFilters);
+    sortSelect.addEventListener("change", applyFilters);
+    refreshBtn.addEventListener("click", loadChats);
+
+    document.querySelectorAll(".side-tab").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".side-tab").forEach((item) => {
+          item.classList.remove("active");
+        });
+
+        button.classList.add("active");
+        activeFilter = button.dataset.filter;
+        applyFilters();
+      });
+    });
+
+    loadChats();
+  </script>
+</body>
+</html>

@@ -1,221 +1,469 @@
 <!doctype html>
 <html lang="ru">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Чат — Charitor.ai</title>
-    <link rel="stylesheet" href="/css/general.css" />
-    <link rel="stylesheet" href="/css/chat.css" />
-    <style>
-      .message-empty {
-        color: #cfcfff;
-        opacity: 0.8;
-        padding: 20px;
-        text-align: center;
-      }
-    </style>
-  </head>
-  <body>
-    <header class="chat-topbar">
-      <a href="/pages/main.html" class="back-link">Назад</a>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Чат — Charitor.ai</title>
+  <link rel="stylesheet" href="/css/general.css" />
+  <link rel="stylesheet" href="/css/chat.css" />
+</head>
 
-      <div class="chat-topbar-right">
-        <span class="persona-status"> Используется <span>персона</span> </span>
+<body>
+  <header class="chat-topbar">
+    <a href="/pages/main.html" class="back-link">← Назад</a>
 
-        <button class="settings-btn" type="button">⚙</button>
+    <div class="chat-title">
+      <span class="lock-icon">⌘</span>
+      <span id="chatTopTitle">Чат</span>
+    </div>
+
+    <div class="chat-topbar-right">
+      <button id="personaBtn" class="persona-pill" type="button">
+        Персона: <span id="activePersonaName">не выбрана</span>
+      </button>
+
+      <button id="menuBtn" class="menu-btn" type="button">☰</button>
+    </div>
+
+    <div id="dropdownMenu" class="dropdown-menu">
+      <button type="button" id="openPersonaModalBtn">👤 Выбрать персону</button>
+      <button type="button" id="newChatBtn">💬 Новый чат</button>
+      <a href="/pages/history.html">📚 Все чаты</a>
+      <a href="/pages/person.html">🧩 Мои персоны</a>
+      <button type="button" id="clearChatBtn">🗑 Очистить чат</button>
+
+      <div class="menu-footer">
+        <span>Поток ответа</span>
+        <label class="switch">
+          <input type="checkbox" id="streamToggle" checked />
+          <span></span>
+        </label>
       </div>
-    </header>
+    </div>
+  </header>
 
-    <main class="chat-page">
-      <section class="chat-wrapper">
-        <div class="chat-header">
-          <div class="chat-bot-info">
-            <img
-              src="/img/icon.svg"
-              alt="bot avatar"
-              class="chat-bot-avatar"
-              id="chatBotAvatar"
-            />
+  <aside id="settingsPanel" class="settings-panel">
+    <div class="settings-head">
+      <h3>Настройки чата</h3>
+      <button id="closeSettingsBtn" type="button">×</button>
+    </div>
 
-            <div class="chat-bot-meta">
-              <h1 id="chatBotName">Загрузка...</h1>
-            </div>
-          </div>
+    <div class="settings-section">
+      <h4>AI-модель</h4>
 
-          <div class="chat-header-actions">
-            <button type="button" class="mini-action">•••</button>
-            <button type="button" class="mini-action">⏩</button>
-            <button type="button" class="mini-action">✎</button>
+      <label>Модель Ollama</label>
+      <input id="modelInput" value="llama3.1" placeholder="Например: llama3.1" />
+
+      <label>Системный промпт</label>
+      <textarea id="globalPromptInput" rows="6" placeholder="Общие правила поведения бота..."></textarea>
+    </div>
+
+    <div class="settings-section">
+      <h4>Параметры ответа</h4>
+
+      <label>Temperature</label>
+      <input id="temperatureInput" type="number" min="0" max="2" step="0.1" value="0.8" />
+
+      <label>Max tokens</label>
+      <input id="maxTokensInput" type="number" min="64" max="4096" step="64" value="1024" />
+    </div>
+  </aside>
+
+  <div id="personaModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2>Выбор персоны</h2>
+        <button id="closePersonaModalBtn" type="button">×</button>
+      </div>
+
+      <p class="modal-subtitle">
+        Персона — это образ, от лица которого ты общаешься с ботом.
+      </p>
+
+      <div id="personasList" class="personas-list"></div>
+
+      <div class="modal-actions">
+        <a href="/pages/person.html" class="secondary-btn">Создать персону</a>
+        <button id="withoutPersonaBtn" class="ghost-btn" type="button">Без персоны</button>
+      </div>
+    </div>
+  </div>
+
+  <main class="chat-page">
+    <section class="notice">
+      Все ответы являются художественной генерацией. Настройки персонажа и выбранная персона влияют на стиль ответа.
+    </section>
+
+    <section class="chat-wrapper">
+      <div class="bot-intro">
+        <img id="chatBotAvatar" src="/img/icon.svg" alt="bot avatar" />
+
+        <div>
+          <h1 id="chatBotName">Загрузка...</h1>
+          <p id="chatBotDesc">Подготовка персонажа к диалогу...</p>
+        </div>
+      </div>
+
+      <div class="messages-box" id="messagesBox">
+        <div class="message-empty">Загрузка сообщений...</div>
+      </div>
+    </section>
+
+    <form class="chat-input-area" id="chatForm">
+      <textarea
+        id="chatInput"
+        placeholder="Введите сообщение... Shift + Enter — новая строка"
+        rows="3"
+      ></textarea>
+
+      <button type="submit" class="send-btn">➤</button>
+    </form>
+  </main>
+
+  <script>
+    const API_BASE = "http://127.0.0.1:3000";
+
+    const savedUser = JSON.parse(localStorage.getItem("user") || "null");
+    const userId = savedUser?.id || localStorage.getItem("user_id") || 1;
+
+    const params = new URLSearchParams(window.location.search);
+    const botId = params.get("id");
+
+    const chatForm = document.getElementById("chatForm");
+    const chatInput = document.getElementById("chatInput");
+    const messagesBox = document.getElementById("messagesBox");
+
+    const chatBotName = document.getElementById("chatBotName");
+    const chatBotDesc = document.getElementById("chatBotDesc");
+    const chatBotAvatar = document.getElementById("chatBotAvatar");
+    const chatTopTitle = document.getElementById("chatTopTitle");
+
+    const menuBtn = document.getElementById("menuBtn");
+    const dropdownMenu = document.getElementById("dropdownMenu");
+
+    const personaBtn = document.getElementById("personaBtn");
+    const activePersonaName = document.getElementById("activePersonaName");
+
+    const personaModal = document.getElementById("personaModal");
+    const personasList = document.getElementById("personasList");
+    const openPersonaModalBtn = document.getElementById("openPersonaModalBtn");
+    const closePersonaModalBtn = document.getElementById("closePersonaModalBtn");
+    const withoutPersonaBtn = document.getElementById("withoutPersonaBtn");
+
+    const settingsPanel = document.getElementById("settingsPanel");
+    const closeSettingsBtn = document.getElementById("closeSettingsBtn");
+
+    const clearChatBtn = document.getElementById("clearChatBtn");
+    const newChatBtn = document.getElementById("newChatBtn");
+
+    let currentChatId = null;
+    let currentBot = null;
+    let activePersona = null;
+    let personas = [];
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text ?? "";
+      return div.innerHTML;
+    }
+
+    async function safeReadJson(response) {
+      const raw = await response.text();
+
+      try {
+        return JSON.parse(raw);
+      } catch {
+        console.error("Сервер вернул не JSON:", raw);
+        throw new Error("Сервер вернул не JSON. Проверь server.js.");
+      }
+    }
+
+    function clearMessages() {
+      messagesBox.innerHTML = "";
+    }
+
+    function renderEmpty(text) {
+      messagesBox.innerHTML = `<div class="message-empty">${escapeHtml(text)}</div>`;
+    }
+
+    function renderMessage(senderType, text, options = {}) {
+      const normalized = senderType === "user" ? "user" : "bot";
+
+      const row = document.createElement("div");
+      row.className = `message message-${normalized}`;
+
+      const avatar = normalized === "user"
+        ? activePersona?.avatar_url || savedUser?.avatar_url || "/img/icon.svg"
+        : currentBot?.avatar_url || "/img/icon.svg";
+
+      const name = normalized === "user"
+        ? activePersona?.name || savedUser?.username || "Вы"
+        : currentBot?.name || "Бот";
+
+      row.innerHTML = `
+        <img class="message-avatar" src="${escapeHtml(avatar)}" alt="avatar" />
+        <div class="message-content">
+          <div class="message-author">${escapeHtml(name)}</div>
+          <div class="message-bubble ${options.loading ? "loading" : ""}">
+            ${escapeHtml(text)}
           </div>
         </div>
-
-        <div class="messages-box" id="messagesBox">
-          <div class="message-empty">Загрузка сообщений...</div>
-        </div>
-      </section>
-
-      <form class="chat-input-area" id="chatForm">
-        <textarea id="chatInput" placeholder="Сообщение..." rows="3"></textarea>
-
-        <button type="submit" class="send-btn">➤</button>
-      </form>
-    </main>
-
-    <script>
-      const API_BASE = "http://127.0.0.1:3000";
-
-      const chatForm = document.getElementById("chatForm");
-      const chatInput = document.getElementById("chatInput");
-      const messagesBox = document.getElementById("messagesBox");
-      const chatBotName = document.getElementById("chatBotName");
-      const chatBotAvatar = document.getElementById("chatBotAvatar");
-
-      const params = new URLSearchParams(window.location.search);
-      const botId = params.get("id");
-      const userId = localStorage.getItem("user_id") || 1;
-
-      let currentChatId = null;
-
-      function escapeHtml(text) {
-        const div = document.createElement("div");
-        div.textContent = text ?? "";
-        return div.innerHTML;
-      }
-
-      function clearMessages() {
-        messagesBox.innerHTML = "";
-      }
-
-      function renderEmpty(text) {
-        messagesBox.innerHTML = `<div class="message-empty">${escapeHtml(text)}</div>`;
-      }
-
-      function renderMessage(senderType, text) {
-        const message = document.createElement("div");
-        const normalized = senderType === "user" ? "user" : "bot";
-
-        message.className =
-          normalized === "user"
-            ? "message message-user"
-            : "message message-bot";
-
-        message.innerHTML = `
-        <div class="message-bubble">${escapeHtml(text)}</div>
       `;
 
-        messagesBox.appendChild(message);
-        messagesBox.scrollTop = messagesBox.scrollHeight;
+      messagesBox.appendChild(row);
+      messagesBox.scrollTop = messagesBox.scrollHeight;
+
+      return row;
+    }
+
+    function setBotAvatar(avatarUrl) {
+      chatBotAvatar.src = avatarUrl && avatarUrl.trim() ? avatarUrl : "/img/icon.svg";
+
+      chatBotAvatar.onerror = () => {
+        chatBotAvatar.src = "/img/icon.svg";
+      };
+    }
+
+    function setActivePersona(persona) {
+      activePersona = persona;
+
+      if (persona) {
+        localStorage.setItem(`activePersona_${userId}`, JSON.stringify(persona));
+        activePersonaName.textContent = persona.name;
+      } else {
+        localStorage.removeItem(`activePersona_${userId}`);
+        activePersonaName.textContent = "не выбрана";
       }
+    }
 
-      async function safeReadJson(response) {
-        const raw = await response.text();
+    async function loadPersonas() {
+      try {
+        const response = await fetch(`${API_BASE}/personas/${userId}`);
+        const data = await safeReadJson(response);
 
-        try {
-          return JSON.parse(raw);
-        } catch (e) {
-          console.error("Сервер вернул не JSON:", raw);
-          throw new Error(
-            "Сервер вернул не JSON. Проверь server.js и перезапусти Node.",
-          );
+        if (!response.ok) {
+          throw new Error(data.message || "Ошибка загрузки персон");
         }
+
+        personas = Array.isArray(data) ? data : [];
+
+        const savedPersona = JSON.parse(
+          localStorage.getItem(`activePersona_${userId}`) || "null"
+        );
+
+        const defaultPersona =
+          personas.find((p) => savedPersona && Number(p.id) === Number(savedPersona.id)) ||
+          personas.find((p) => Number(p.is_default) === 1) ||
+          null;
+
+        setActivePersona(defaultPersona);
+        renderPersonas();
+      } catch (error) {
+        console.error(error);
+        personas = [];
+        renderPersonas();
+      }
+    }
+
+    function renderPersonas() {
+      personasList.innerHTML = "";
+
+      if (!personas.length) {
+        personasList.innerHTML = `
+          <div class="persona-empty">
+            У вас пока нет персон. Создайте первую персону для ролевого общения.
+          </div>
+        `;
+        return;
       }
 
-      function setBotAvatar(avatarUrl) {
-        if (avatarUrl && String(avatarUrl).trim()) {
-          chatBotAvatar.src = avatarUrl;
+      personas.forEach((persona) => {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className =
+          activePersona && Number(activePersona.id) === Number(persona.id)
+            ? "persona-option active"
+            : "persona-option";
+
+        item.innerHTML = `
+          <img src="${escapeHtml(persona.avatar_url || "/img/icon.svg")}" alt="persona" />
+          <div>
+            <strong>${escapeHtml(persona.name)}</strong>
+            <span>${escapeHtml(persona.persona_prompt || persona.description || "Без описания")}</span>
+          </div>
+          ${Number(persona.is_default) === 1 ? `<em>Основная</em>` : ""}
+        `;
+
+        item.addEventListener("click", () => {
+          setActivePersona(persona);
+          closePersonaModal();
+        });
+
+        personasList.appendChild(item);
+      });
+    }
+
+    async function loadChatByBot() {
+      if (!botId) {
+        renderEmpty("Не передан id бота");
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `${API_BASE}/chat-by-bot/${botId}?user_id=${userId}`
+        );
+
+        const data = await safeReadJson(response);
+
+        if (!response.ok) {
+          throw new Error(data.message || "Ошибка загрузки чата");
+        }
+
+        currentChatId = data.chat.id;
+        currentBot = data.bot;
+
+        chatBotName.textContent = data.bot?.name || "Без имени";
+        chatTopTitle.textContent = data.bot?.name || "Чат";
+        chatBotDesc.textContent =
+          data.bot?.short_description ||
+          data.bot?.full_description ||
+          "Персонаж готов к диалогу.";
+
+        chatInput.placeholder = `Сообщение для ${data.bot?.name || "персонажа"}...`;
+        setBotAvatar(data.bot?.avatar_url);
+
+        clearMessages();
+
+        if (Array.isArray(data.messages) && data.messages.length > 0) {
+          data.messages.forEach((msg) => {
+            renderMessage(msg.sender_type, msg.content);
+          });
         } else {
-          chatBotAvatar.src = "/img/icon.svg";
+          renderEmpty("Начните диалог первым сообщением");
         }
-
-        chatBotAvatar.onerror = () => {
-          chatBotAvatar.src = "/img/icon.svg";
-        };
+      } catch (error) {
+        console.error(error);
+        renderEmpty(error.message);
       }
+    }
 
-      async function loadChatByBot() {
-        if (!botId) {
-          renderEmpty("Не передан id бота");
-          return;
-        }
+    async function sendMessageToServer(text) {
+      const payload = {
+        text,
+        persona_id: activePersona?.id || null,
+        persona_prompt: activePersona?.persona_prompt || activePersona?.description || "",
+        model: document.getElementById("modelInput").value.trim(),
+        global_prompt: document.getElementById("globalPromptInput").value.trim(),
+        temperature: Number(document.getElementById("temperatureInput").value || 0.8),
+        max_tokens: Number(document.getElementById("maxTokensInput").value || 1024),
+      };
 
-        try {
-          const response = await fetch(
-            `${API_BASE}/chat-by-bot/${botId}?user_id=${userId}`,
-          );
-          const data = await safeReadJson(response);
-
-          if (!response.ok) {
-            throw new Error(data.message || "Ошибка загрузки чата");
-          }
-
-          currentChatId = data.chat.id;
-
-          chatBotName.textContent = data.bot?.name || "Без имени";
-          chatInput.placeholder = `Сообщение ${data.bot?.name || "персонажу"}`;
-
-          setBotAvatar(data.bot?.avatar_url);
-
-          clearMessages();
-
-          if (Array.isArray(data.messages) && data.messages.length > 0) {
-            data.messages.forEach((msg) => {
-              renderMessage(msg.sender_type, msg.content);
-            });
-          } else {
-            renderEmpty("Сообщений пока нет");
-          }
-        } catch (error) {
-          console.error("Ошибка:", error);
-          renderEmpty(error.message);
-        }
-      }
-
-      chatForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-
-        const text = chatInput.value.trim();
-
-        if (!text) return;
-
-        if (!currentChatId) {
-          alert("Чат ещё не загружен");
-          return;
-        }
-
-        const hadEmpty = messagesBox.querySelector(".message-empty");
-        if (hadEmpty) {
-          clearMessages();
-        }
-
-        renderMessage("user", text);
-        chatInput.value = "";
-
-        try {
-          const response = await fetch(
-            `${API_BASE}/chat/${currentChatId}/message`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ text }),
-            },
-          );
-
-          const data = await safeReadJson(response);
-
-          if (!response.ok) {
-            throw new Error(data.message || "Ошибка отправки сообщения");
-          }
-
-          renderMessage(data.reply.sender_type, data.reply.content);
-        } catch (error) {
-          console.error("Ошибка отправки:", error);
-          alert(error.message);
-        }
+      const response = await fetch(`${API_BASE}/chat/${currentChatId}/message`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
       });
 
-      loadChatByBot();
-    </script>
-  </body>
+      const data = await safeReadJson(response);
+
+      if (!response.ok) {
+        throw new Error(data.message || "Ошибка отправки сообщения");
+      }
+
+      return data;
+    }
+
+    chatForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const text = chatInput.value.trim();
+      if (!text) return;
+
+      if (!currentChatId) {
+        alert("Чат ещё не загружен");
+        return;
+      }
+
+      const hadEmpty = messagesBox.querySelector(".message-empty");
+      if (hadEmpty) clearMessages();
+
+      renderMessage("user", text);
+      chatInput.value = "";
+
+      const loadingMessage = renderMessage("bot", "Печатает...", { loading: true });
+
+      try {
+        const data = await sendMessageToServer(text);
+
+        loadingMessage.remove();
+        renderMessage(data.reply.sender_type, data.reply.content);
+      } catch (error) {
+        console.error(error);
+        loadingMessage.remove();
+        alert(error.message);
+      }
+    });
+
+    chatInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        chatForm.requestSubmit();
+      }
+    });
+
+    menuBtn.addEventListener("click", () => {
+      dropdownMenu.classList.toggle("open");
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!dropdownMenu.contains(e.target) && !menuBtn.contains(e.target)) {
+        dropdownMenu.classList.remove("open");
+      }
+    });
+
+    function openPersonaModal() {
+      personaModal.classList.remove("hidden");
+      dropdownMenu.classList.remove("open");
+    }
+
+    function closePersonaModal() {
+      personaModal.classList.add("hidden");
+    }
+
+    personaBtn.addEventListener("click", openPersonaModal);
+    openPersonaModalBtn.addEventListener("click", openPersonaModal);
+    closePersonaModalBtn.addEventListener("click", closePersonaModal);
+
+    withoutPersonaBtn.addEventListener("click", () => {
+      setActivePersona(null);
+      closePersonaModal();
+    });
+
+    closeSettingsBtn.addEventListener("click", () => {
+      settingsPanel.classList.remove("open");
+    });
+
+    document.querySelector(".settings-btn")?.addEventListener("click", () => {
+      settingsPanel.classList.add("open");
+    });
+
+    clearChatBtn.addEventListener("click", () => {
+      if (confirm("Очистить сообщения только на экране?")) {
+        renderEmpty("Чат очищен на экране");
+      }
+    });
+
+    newChatBtn.addEventListener("click", () => {
+      window.location.href = `/pages/chat.html?id=${botId}`;
+    });
+
+    (async () => {
+      await loadPersonas();
+      await loadChatByBot();
+    })();
+  </script>
+</body>
 </html>

@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Поиск персонажей — Charitor.ai</title>
+  <link rel="stylesheet" href="../css/general.css" />
+  <link rel="stylesheet" href="../css/search.css" />
+</head>
+<body>
+  <header class="search-topbar">
+    <div class="topbar-left">
+      <a href="../index.html" class="brand">Charitor.ai</a>
+      <a href="./main.html" class="back-btn">← На главную</a>
+    </div>
+
+    <form class="top-search" id="topSearchForm">
+      <input
+        type="text"
+        id="globalSearchInput"
+        placeholder="Поиск персонажей, авторов, тегов..."
+      />
+      <button type="submit">⌕</button>
+    </form>
+
+    <div class="topbar-right">
+      <a href="./create.html" class="create-link">Создать персонажа</a>
+      <button class="icon-btn" type="button">💬</button>
+      <button class="icon-btn" type="button">🔔</button>
+      <a href="./profile.html" class="profile-mini">
+        <img id="topAvatar" src="../img/icon.svg" alt="avatar" />
+      </a>
+    </div>
+  </header>
+
+  <main class="search-page">
+    <section class="tags-panel">
+      <div class="tags-head">
+        <h1>Каталог персонажей</h1>
+        <p>Ищи персонажей по тегам, имени, автору или описанию.</p>
+      </div>
+
+      <div class="tag-cloud" id="tagCloud">
+        <button class="tag-chip active" data-tag="all">Все</button>
+        <button class="tag-chip" data-tag="fantasy">Fantasy</button>
+        <button class="tag-chip" data-tag="romance">Romance</button>
+        <button class="tag-chip" data-tag="magic">Magic</button>
+        <button class="tag-chip" data-tag="villain">Villain</button>
+        <button class="tag-chip" data-tag="hero">Hero</button>
+        <button class="tag-chip" data-tag="anime">Anime</button>
+        <button class="tag-chip" data-tag="story">Story</button>
+        <button class="tag-chip" data-tag="oc">OC</button>
+        <button class="tag-chip" data-tag="rp">RP</button>
+        <button class="tag-chip" data-tag="adventure">Adventure</button>
+        <button class="tag-chip" data-tag="drama">Drama</button>
+        <button class="tag-chip" data-tag="sci-fi">Sci-Fi</button>
+        <button class="tag-chip" data-tag="mystery">Mystery</button>
+      </div>
+    </section>
+
+    <section class="search-layout">
+      <aside class="filters-card">
+        <h2>Фильтры</h2>
+
+        <div class="filter-group">
+          <div class="filter-title">Доступность</div>
+
+          <label class="filter-radio">
+            <input type="radio" name="visibility" value="all" checked />
+            <span></span>
+            Все
+          </label>
+
+          <label class="filter-radio">
+            <input type="radio" name="visibility" value="public" />
+            <span></span>
+            Публичные
+          </label>
+
+          <label class="filter-radio">
+            <input type="radio" name="visibility" value="private" />
+            <span></span>
+            Приватные
+          </label>
+        </div>
+
+        <div class="filter-group">
+          <div class="filter-title">Сортировка</div>
+
+          <label class="filter-radio">
+            <input type="radio" name="sort" value="new" checked />
+            <span></span>
+            Новые
+          </label>
+
+          <label class="filter-radio">
+            <input type="radio" name="sort" value="name" />
+            <span></span>
+            По имени
+          </label>
+
+          <label class="filter-radio">
+            <input type="radio" name="sort" value="author" />
+            <span></span>
+            По автору
+          </label>
+        </div>
+
+        <div class="filter-group">
+          <div class="filter-title">Длина описания</div>
+
+          <select id="descriptionFilter">
+            <option value="all">Любая</option>
+            <option value="short">Короткая</option>
+            <option value="long">Подробная</option>
+          </select>
+        </div>
+
+        <button class="reset-btn" id="resetFiltersBtn" type="button">
+          Сбросить фильтры
+        </button>
+      </aside>
+
+      <section class="results-area">
+        <div class="results-top">
+          <div>
+            <h2>Персонажи</h2>
+            <p id="foundText">Найдено: 0</p>
+          </div>
+
+          <div class="view-actions">
+            <button class="view-btn active" type="button" id="gridViewBtn">▦</button>
+            <button class="view-btn" type="button" id="compactViewBtn">☰</button>
+          </div>
+        </div>
+
+        <div class="status-box" id="statusBox">
+          Загрузка персонажей...
+        </div>
+
+        <div class="characters-grid" id="charactersGrid"></div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const savedUser = JSON.parse(localStorage.getItem("user") || "null");
+
+    const globalSearchInput = document.getElementById("globalSearchInput");
+    const topSearchForm = document.getElementById("topSearchForm");
+    const tagCloud = document.getElementById("tagCloud");
+    const descriptionFilter = document.getElementById("descriptionFilter");
+    const resetFiltersBtn = document.getElementById("resetFiltersBtn");
+    const charactersGrid = document.getElementById("charactersGrid");
+    const foundText = document.getElementById("foundText");
+    const statusBox = document.getElementById("statusBox");
+    const gridViewBtn = document.getElementById("gridViewBtn");
+    const compactViewBtn = document.getElementById("compactViewBtn");
+    const topAvatar = document.getElementById("topAvatar");
+
+    let allBots = [];
+    let activeTag = "all";
+    let compactMode = false;
+
+    if (savedUser?.avatar_url) {
+      topAvatar.src = savedUser.avatar_url;
+    }
+
+    function normalizeText(value) {
+      return String(value || "").toLowerCase().trim();
+    }
+
+    function getSelectedRadio(name) {
+      const selected = document.querySelector(`input[name="${name}"]:checked`);
+      return selected ? selected.value : "all";
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text || "";
+      return div.innerHTML;
+    }
+
+    function getAvatar(bot) {
+      return bot.avatar_url || bot.avatar || "../img/icon.svg";
+    }
+
+    function getBotUrl(bot) {
+      return `./bot.html?id=${bot.id}`;
+    }
+
+    function getChatUrl(bot) {
+      return `./chat.html?id=${bot.id}`;
+    }
+
+    function formatTags(tagsString) {
+      if (!tagsString || !tagsString.trim()) return [];
+
+      return tagsString
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean)
+        .slice(0, 4);
+    }
+
+    function renderBots(items) {
+      charactersGrid.innerHTML = "";
+      foundText.textContent = `Найдено: ${items.length}`;
+
+      if (!items.length) {
+        statusBox.style.display = "block";
+        statusBox.textContent = "Персонажи не найдены";
+        return;
+      }
+
+      statusBox.style.display = "none";
+
+      items.forEach((bot) => {
+        const tags = formatTags(bot.tags);
+        const card = document.createElement("article");
+        card.className = compactMode ? "character-card compact" : "character-card";
+
+        card.innerHTML = `
+          <a href="${getBotUrl(bot)}" class="character-image">
+            <img src="${getAvatar(bot)}" alt="${escapeHtml(bot.name)}" />
+            <span class="visibility-badge">${escapeHtml(bot.visibility || "public")}</span>
+          </a>
+
+          <div class="character-body">
+            <div class="character-title-row">
+              <div>
+                <h3>
+                  <a href="${getBotUrl(bot)}">${escapeHtml(bot.name || "Без имени")}</a>
+                </h3>
+                <p>@${escapeHtml(bot.author_name || bot.author || "unknown")}</p>
+              </div>
+              <span class="heart">❤</span>
+            </div>
+
+            <p class="character-desc">
+              ${escapeHtml(bot.short_description || bot.description || "Описание пока отсутствует")}
+            </p>
+
+            <div class="character-tags">
+              ${
+                tags.length
+                  ? tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")
+                  : `<span>Без тегов</span>`
+              }
+            </div>
+
+            <div class="character-actions">
+              <a href="${getBotUrl(bot)}" class="card-btn">Открыть</a>
+              <a href="${getChatUrl(bot)}" class="card-btn primary">Чат</a>
+            </div>
+          </div>
+        `;
+
+        charactersGrid.appendChild(card);
+      });
+    }
+
+    function applyFilters() {
+      const query = normalizeText(globalSearchInput.value);
+      const visibility = getSelectedRadio("visibility");
+      const sort = getSelectedRadio("sort");
+      const descFilter = descriptionFilter.value;
+
+      let filtered = [...allBots];
+
+      if (query) {
+        filtered = filtered.filter((bot) => {
+          const haystack = normalizeText(`
+            ${bot.name}
+            ${bot.short_description}
+            ${bot.full_description}
+            ${bot.tags}
+            ${bot.author_name}
+          `);
+
+          return haystack.includes(query);
+        });
+      }
+
+      if (activeTag !== "all") {
+        filtered = filtered.filter((bot) =>
+          normalizeText(bot.tags).includes(activeTag)
+        );
+      }
+
+      if (visibility !== "all") {
+        filtered = filtered.filter((bot) =>
+          normalizeText(bot.visibility || "public") === visibility
+        );
+      }
+
+      if (descFilter === "short") {
+        filtered = filtered.filter((bot) =>
+          String(bot.short_description || "").length <= 120
+        );
+      }
+
+      if (descFilter === "long") {
+        filtered = filtered.filter((bot) =>
+          String(bot.short_description || "").length > 120
+        );
+      }
+
+      if (sort === "name") {
+        filtered.sort((a, b) =>
+          String(a.name || "").localeCompare(String(b.name || ""))
+        );
+      }
+
+      if (sort === "author") {
+        filtered.sort((a, b) =>
+          String(a.author_name || "").localeCompare(String(b.author_name || ""))
+        );
+      }
+
+      if (sort === "new") {
+        filtered.sort((a, b) => {
+          const dateA = new Date(a.created_at || 0).getTime();
+          const dateB = new Date(b.created_at || 0).getTime();
+          return dateB - dateA;
+        });
+      }
+
+      renderBots(filtered);
+    }
+
+    async function loadBots() {
+      try {
+        const response = await fetch("http://localhost:3000/all-bots");
+
+        if (!response.ok) {
+          throw new Error("Ошибка загрузки персонажей");
+        }
+
+        const data = await response.json();
+        allBots = Array.isArray(data) ? data : [];
+        applyFilters();
+      } catch (error) {
+        console.error(error);
+
+        allBots = [
+          {
+            id: 1,
+            name: "Aurelia Fairy Princess",
+            author_name: "demo",
+            short_description: "Магическая принцесса из сказочного мира.",
+            avatar_url: "../img/icon.svg",
+            tags: "fantasy, magic, story",
+            visibility: "public",
+            created_at: new Date().toISOString()
+          },
+          {
+            id: 2,
+            name: "Dark Storyteller",
+            author_name: "demo",
+            short_description: "Персонаж для мрачных сюжетов и загадочных историй.",
+            avatar_url: "../img/icon.svg",
+            tags: "mystery, drama, villain",
+            visibility: "public",
+            created_at: new Date().toISOString()
+          }
+        ];
+
+        statusBox.style.display = "block";
+        statusBox.textContent =
+          "Сервер не подключён. Показаны демо-персонажи.";
+        applyFilters();
+      }
+    }
+
+    topSearchForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      applyFilters();
+    });
+
+    globalSearchInput.addEventListener("input", applyFilters);
+
+    tagCloud.addEventListener("click", (e) => {
+      const chip = e.target.closest(".tag-chip");
+      if (!chip) return;
+
+      document.querySelectorAll(".tag-chip").forEach((item) => {
+        item.classList.remove("active");
+      });
+
+      chip.classList.add("active");
+      activeTag = chip.dataset.tag;
+      applyFilters();
+    });
+
+    document.querySelectorAll("input[type='radio']").forEach((radio) => {
+      radio.addEventListener("change", applyFilters);
+    });
+
+    descriptionFilter.addEventListener("change", applyFilters);
+
+    resetFiltersBtn.addEventListener("click", () => {
+      globalSearchInput.value = "";
+      activeTag = "all";
+      descriptionFilter.value = "all";
+
+      document.querySelectorAll(".tag-chip").forEach((item) => {
+        item.classList.remove("active");
+      });
+
+      document.querySelector(".tag-chip[data-tag='all']").classList.add("active");
+
+      document.querySelector("input[name='visibility'][value='all']").checked = true;
+      document.querySelector("input[name='sort'][value='new']").checked = true;
+
+      applyFilters();
+    });
+
+    gridViewBtn.addEventListener("click", () => {
+      compactMode = false;
+      gridViewBtn.classList.add("active");
+      compactViewBtn.classList.remove("active");
+      applyFilters();
+    });
+
+    compactViewBtn.addEventListener("click", () => {
+      compactMode = true;
+      compactViewBtn.classList.add("active");
+      gridViewBtn.classList.remove("active");
+      applyFilters();
+    });
+
+    loadBots();
+  </script>
+</body>
+</html>

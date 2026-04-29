@@ -1194,6 +1194,287 @@ app.get("/all-bots", (req, res) => {
     res.json(rows);
   });
 });
+
+
+/* ===================== ПЕРСОНЫ ===================== */
+
+/* Получить персоны пользователя */
+app.get("/personas/:userId", (req, res) => {
+  const { userId } = req.params;
+
+  const sql = `
+    SELECT
+      id,
+      user_id,
+      name,
+      description,
+      avatar_url,
+      persona_prompt,
+      is_default,
+      created_at,
+      updated_at
+    FROM personas
+    WHERE user_id = ?
+    ORDER BY is_default DESC, created_at DESC
+  `;
+
+  db.query(sql, [userId], (err, rows) => {
+    if (err) {
+      console.error("GET PERSONAS ERROR:", err);
+      return res.status(500).json({
+        message: "Ошибка загрузки персон",
+      });
+    }
+
+    res.json(rows);
+  });
+});
+
+/* Создать персону */
+app.post("/persona", (req, res) => {
+  const {
+    user_id,
+    name,
+    description,
+    avatar_url,
+    persona_prompt,
+    is_default,
+  } = req.body;
+
+  if (!user_id || !name || !description) {
+    return res.status(400).json({
+      message: "Заполните имя и описание",
+    });
+  }
+
+  const createPersona = () => {
+    const sql = `
+      INSERT INTO personas
+      (
+        user_id,
+        name,
+        description,
+        avatar_url,
+        persona_prompt,
+        is_default,
+        created_at,
+        updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
+    `;
+
+    db.query(
+      sql,
+      [
+        user_id,
+        name,
+        description,
+        avatar_url || "",
+        persona_prompt || "",
+        Number(is_default) === 1 ? 1 : 0,
+      ],
+      (err, result) => {
+        if (err) {
+          console.error("CREATE PERSONA ERROR:", err);
+          return res.status(500).json({
+            message: "Ошибка создания персоны",
+          });
+        }
+
+        res.json({
+          message: "Персона создана ✅",
+          persona_id: result.insertId,
+        });
+      }
+    );
+  };
+
+  if (Number(is_default) === 1) {
+    db.query(
+      "UPDATE personas SET is_default = 0 WHERE user_id = ?",
+      [user_id],
+      (err) => {
+        if (err) {
+          console.error("RESET DEFAULT PERSONA ERROR:", err);
+          return res.status(500).json({
+            message: "Ошибка выбора основной персоны",
+          });
+        }
+
+        createPersona();
+      }
+    );
+  } else {
+    createPersona();
+  }
+});
+
+/* Обновить персону */
+app.put("/persona/:id", (req, res) => {
+  const { id } = req.params;
+  const {
+    user_id,
+    name,
+    description,
+    avatar_url,
+    persona_prompt,
+    is_default,
+  } = req.body;
+
+  if (!user_id || !name || !description) {
+    return res.status(400).json({
+      message: "Заполните имя и описание",
+    });
+  }
+
+  const updatePersona = () => {
+    const sql = `
+      UPDATE personas
+      SET
+        name = ?,
+        description = ?,
+        avatar_url = ?,
+        persona_prompt = ?,
+        is_default = ?,
+        updated_at = NOW()
+      WHERE id = ? AND user_id = ?
+    `;
+
+    db.query(
+      sql,
+      [
+        name,
+        description,
+        avatar_url || "",
+        persona_prompt || "",
+        Number(is_default) === 1 ? 1 : 0,
+        id,
+        user_id,
+      ],
+      (err, result) => {
+        if (err) {
+          console.error("UPDATE PERSONA ERROR:", err);
+          return res.status(500).json({
+            message: "Ошибка обновления персоны",
+          });
+        }
+
+        if (result.affectedRows === 0) {
+          return res.status(404).json({
+            message: "Персона не найдена",
+          });
+        }
+
+        res.json({
+          message: "Персона обновлена ✅",
+        });
+      }
+    );
+  };
+
+  if (Number(is_default) === 1) {
+    db.query(
+      "UPDATE personas SET is_default = 0 WHERE user_id = ?",
+      [user_id],
+      (err) => {
+        if (err) {
+          console.error("RESET DEFAULT PERSONA ERROR:", err);
+          return res.status(500).json({
+            message: "Ошибка выбора основной персоны",
+          });
+        }
+
+        updatePersona();
+      }
+    );
+  } else {
+    updatePersona();
+  }
+});
+
+/* Сделать персону основной */
+app.put("/persona/:id/default", (req, res) => {
+  const { id } = req.params;
+  const { user_id } = req.body;
+
+  if (!user_id) {
+    return res.status(400).json({
+      message: "Не указан пользователь",
+    });
+  }
+
+  db.query(
+    "UPDATE personas SET is_default = 0 WHERE user_id = ?",
+    [user_id],
+    (err) => {
+      if (err) {
+        console.error("RESET DEFAULT PERSONA ERROR:", err);
+        return res.status(500).json({
+          message: "Ошибка обновления персон",
+        });
+      }
+
+      db.query(
+        "UPDATE personas SET is_default = 1 WHERE id = ? AND user_id = ?",
+        [id, user_id],
+        (updateErr, result) => {
+          if (updateErr) {
+            console.error("SET DEFAULT PERSONA ERROR:", updateErr);
+            return res.status(500).json({
+              message: "Ошибка выбора персоны",
+            });
+          }
+
+          if (result.affectedRows === 0) {
+            return res.status(404).json({
+              message: "Персона не найдена",
+            });
+          }
+
+          res.json({
+            message: "Основная персона выбрана ✅",
+          });
+        }
+      );
+    }
+  );
+});
+
+/* Удалить персону */
+app.delete("/persona/:id", (req, res) => {
+  const { id } = req.params;
+  const { user_id } = req.body;
+
+  if (!user_id) {
+    return res.status(400).json({
+      message: "Не указан пользователь",
+    });
+  }
+
+  const sql = `
+    DELETE FROM personas
+    WHERE id = ? AND user_id = ?
+  `;
+
+  db.query(sql, [id, user_id], (err, result) => {
+    if (err) {
+      console.error("DELETE PERSONA ERROR:", err);
+      return res.status(500).json({
+        message: "Ошибка удаления персоны",
+      });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        message: "Персона не найдена",
+      });
+    }
+
+    res.json({
+      message: "Персона удалена ✅",
+    });
+  });
+});
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {

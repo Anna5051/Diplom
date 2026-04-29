@@ -20,7 +20,7 @@
             id="searchInput"
             placeholder="Поиск персонажей..."
           />
-          <button type="button" aria-label="Поиск">⌕</button>
+        <button type="button" id="searchBtn" aria-label="Поиск">⌕</button>
         </div>
       </div>
 
@@ -77,7 +77,7 @@
         <aside class="sidebar">
           <div class="sidebar-menu">
             <a href="/pages/profile.html" class="sidebar-btn">Профиль</a>
-            <a href="#" class="sidebar-btn">Персоны</a>
+         <a href="/pages/person.html" class="sidebar-btn">Персоны</a>
             <a href="#" class="sidebar-btn">Мои чаты</a>
             <a href="#" class="sidebar-btn">Настройки</a>
             <a href="/pages/create.html" class="sidebar-btn"
@@ -104,13 +104,13 @@
           <section class="last-chats">
             <div class="section-header">
               <h2>Последние чаты</h2>
-              <a href="#" class="history-btn">История чатов</a>
-            </div>
+            <a href="/pages/history.html" class="history-btn">История чатов</a>
 
             <div id="chat-list" class="chat-list"></div>
 
             <p id="chats-empty" class="empty-state">
               У вас пока нет истории чатов
+            </div>
             </p>
           </section>
 
@@ -145,7 +145,7 @@
       const adminPanelBtn = document.getElementById("adminPanelBtn");
 
       const searchInput = document.getElementById("searchInput");
-
+const searchBtn = document.getElementById("searchBtn");
       const chatList = document.getElementById("chat-list");
       const chatsEmpty = document.getElementById("chats-empty");
 
@@ -381,7 +381,36 @@
           allBotsData = [];
         }
       }
+async function loadMyChats() {
+  if (!savedUser || !savedUser.id) return;
 
+  try {
+    const response = await fetch(
+      `http://localhost:3000/my-chats/${savedUser.id}`
+    );
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.error("MY CHATS RAW RESPONSE:", text);
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    const formattedChats = data.map((chat) => ({
+      id: chat.id,
+      bot_id: chat.bot_id,
+      bot_name: chat.bot_name || chat.title || "Чат",
+      avatar: chat.avatar_url || "/img/icon.svg",
+      persona_name: "Не выбрана"
+    }));
+
+    renderChats(formattedChats);
+  } catch (error) {
+    console.error("Ошибка загрузки чатов:", error);
+    renderChats([]);
+  }
+}
       myBotsTabBtn.addEventListener("click", () => {
         activateTab("my");
       });
@@ -395,16 +424,29 @@
         window.location.hash = "cards-grid";
       });
 
-      searchInput.addEventListener("input", applySearch);
+     searchInput.addEventListener("input", applySearch);
+
+searchBtn.addEventListener("click", () => {
+  const query = searchInput.value.trim();
+  window.location.href = `/pages/search.html?q=${encodeURIComponent(query)}`;
+});
+
+searchInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    const query = searchInput.value.trim();
+    window.location.href = `/pages/search.html?q=${encodeURIComponent(query)}`;
+  }
+});
 
       renderChats(chats);
-      renderSubscriptions(subscriptions);
+     renderSubscriptions(subscriptions);
 
-      (async () => {
-        await loadMyBots();
-        await loadAllBots();
-        activateTab("my");
-      })();
+(async () => {
+  await loadMyChats();
+  await loadMyBots();
+  await loadAllBots();
+  activateTab("my");
+})();
     </script>
   </body>
 </html>
