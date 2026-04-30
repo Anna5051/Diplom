@@ -99,6 +99,7 @@
 
     const params = new URLSearchParams(window.location.search);
     const botId = params.get("id");
+    const forceNew = params.get("new");
 
     const chatForm = document.getElementById("chatForm");
     const chatInput = document.getElementById("chatInput");
@@ -161,31 +162,28 @@
     }
 
     function setActivePersona(persona) {
-  if (persona) {
-    activePersona = {
-      id: persona.id,
-      name: persona.name,
-      description: persona.description || "",
-      persona_prompt: persona.persona_prompt || persona.description || "",
-      avatar_url: persona.avatar_url || ""
-    };
+      if (persona) {
+        activePersona = {
+          id: persona.id,
+          name: persona.name,
+          description: persona.description || "",
+          persona_prompt: persona.persona_prompt || persona.description || "",
+          avatar_url: persona.avatar_url || "",
+        };
 
-    localStorage.setItem(
-      `activePersonaId_${userId}`,
-      String(activePersona.id)
-    );
+        localStorage.setItem(`activePersonaId_${userId}`, String(activePersona.id));
 
-    activePersonaName.textContent = activePersona.name;
-    personaBtn.classList.add("active");
-  } else {
-    activePersona = null;
+        activePersonaName.textContent = activePersona.name;
+        personaBtn.classList.add("active");
+      } else {
+        activePersona = null;
 
-    localStorage.removeItem(`activePersonaId_${userId}`);
+        localStorage.removeItem(`activePersonaId_${userId}`);
 
-    activePersonaName.textContent = "не выбрана";
-    personaBtn.classList.remove("active");
-  }
-}
+        activePersonaName.textContent = "не выбрана";
+        personaBtn.classList.remove("active");
+      }
+    }
 
     async function loadPersonas() {
       try {
@@ -198,13 +196,13 @@
 
         personas = Array.isArray(data) ? data : [];
 
-const savedPersonaId = localStorage.getItem(`activePersonaId_${userId}`);
+        const savedPersonaId = localStorage.getItem(`activePersonaId_${userId}`);
 
-const foundPersona = personas.find((persona) => {
-  return Number(persona.id) === Number(savedPersonaId);
-});
+        const foundPersona = personas.find((persona) => {
+          return Number(persona.id) === Number(savedPersonaId);
+        });
 
-setActivePersona(foundPersona || null);
+        setActivePersona(foundPersona || null);
       } catch (error) {
         console.error(error);
         personas = [];
@@ -310,7 +308,7 @@ setActivePersona(foundPersona || null);
 
       try {
         const response = await fetch(
-          `${API_BASE}/chat-by-bot/${botId}?user_id=${userId}`
+          `${API_BASE}/chat-by-bot/${botId}?user_id=${userId}&new=${forceNew ? "1" : "0"}`
         );
 
         const data = await safeReadJson(response);
@@ -481,37 +479,13 @@ setActivePersona(foundPersona || null);
       }
     });
 
-    newChatBtn.addEventListener("click", async () => {
-      if (!currentChatId) {
-        alert("Чат ещё не загружен");
+    newChatBtn.addEventListener("click", () => {
+      if (!botId) {
+        alert("Не найден id персонажа");
         return;
       }
 
-      const ok = confirm("Создать новый чат? Старый чат будет удалён.");
-      if (!ok) return;
-
-      try {
-        const response = await fetch(`${API_BASE}/chat/${currentChatId}`, {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            user_id: userId,
-          }),
-        });
-
-        const data = await safeReadJson(response);
-
-        if (!response.ok) {
-          throw new Error(data.message || "Ошибка создания нового чата");
-        }
-
-        window.location.href = `/pages/chat.html?id=${botId}&new=${Date.now()}`;
-      } catch (error) {
-        console.error(error);
-        alert(error.message);
-      }
+      window.location.href = `/pages/chat.html?id=${botId}&new=${Date.now()}`;
     });
 
     (async () => {

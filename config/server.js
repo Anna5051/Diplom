@@ -506,7 +506,7 @@ app.get("/chat-by-bot/:botId", (req, res) => {
     }
 
     const bot = botRows[0];
-
+const createNewChat = req.query.new === "1";
     const findChatSql = `
       SELECT
         id,
@@ -560,9 +560,9 @@ app.get("/chat-by-bot/:botId", (req, res) => {
         });
       };
 
-      if (chatRows.length > 0) {
-        return sendFullChat(chatRows[0]);
-      }
+   if (!createNewChat && chatRows.length > 0) {
+  return sendFullChat(chatRows[0]);
+}
 
       const insertChatSql = `
         INSERT INTO chats
