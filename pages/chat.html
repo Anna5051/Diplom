@@ -31,43 +31,8 @@
       <a href="/pages/history.html">📚 Все чаты</a>
       <a href="/pages/person.html">🧩 Мои персоны</a>
       <button type="button" id="clearChatBtn">🗑 Очистить чат</button>
-
-      <div class="menu-footer">
-        <span>Поток ответа</span>
-        <label class="switch">
-          <input type="checkbox" id="streamToggle" checked />
-          <span></span>
-        </label>
-      </div>
     </div>
   </header>
-
-  <aside id="settingsPanel" class="settings-panel">
-    <div class="settings-head">
-      <h3>Настройки чата</h3>
-      <button id="closeSettingsBtn" type="button">×</button>
-    </div>
-
-    <div class="settings-section">
-      <h4>AI-модель</h4>
-
-      <label>Модель Ollama</label>
-      <input id="modelInput" value="llama3.1" placeholder="Например: llama3.1" />
-
-      <label>Системный промпт</label>
-      <textarea id="globalPromptInput" rows="6" placeholder="Общие правила поведения бота..."></textarea>
-    </div>
-
-    <div class="settings-section">
-      <h4>Параметры ответа</h4>
-
-      <label>Temperature</label>
-      <input id="temperatureInput" type="number" min="0" max="2" step="0.1" value="0.8" />
-
-      <label>Max tokens</label>
-      <input id="maxTokensInput" type="number" min="64" max="4096" step="64" value="1024" />
-    </div>
-  </aside>
 
   <div id="personaModal" class="modal hidden">
     <div class="modal-card">
@@ -83,15 +48,16 @@
       <div id="personasList" class="personas-list"></div>
 
       <div class="modal-actions">
-        <a href="/pages/person.html" class="secondary-btn">Создать персону</a>
+        <a href="/pages/person.html" class="secondary-btn">Управлять</a>
         <button id="withoutPersonaBtn" class="ghost-btn" type="button">Без персоны</button>
+        <button id="confirmPersonaBtn" class="secondary-btn" type="button">Подтвердить</button>
       </div>
     </div>
   </div>
 
   <main class="chat-page">
     <section class="notice">
-      Все ответы являются художественной генерацией. Настройки персонажа и выбранная персона влияют на стиль ответа.
+      Все ответы являются художественной генерацией. Выбранная персона влияет на стиль общения.
     </section>
 
     <section class="chat-wrapper">
@@ -112,7 +78,7 @@
     <form class="chat-input-area" id="chatForm">
       <textarea
         id="chatInput"
-        placeholder="Введите сообщение... Shift + Enter — новая строка"
+        placeholder="Введите сообщение..."
         rows="3"
       ></textarea>
 
@@ -124,7 +90,12 @@
     const API_BASE = "http://127.0.0.1:3000";
 
     const savedUser = JSON.parse(localStorage.getItem("user") || "null");
-    const userId = savedUser?.id || localStorage.getItem("user_id") || 1;
+
+    if (!savedUser) {
+      window.location.href = "/pages/autorization.html";
+    }
+
+    const userId = savedUser.id;
 
     const params = new URLSearchParams(window.location.search);
     const botId = params.get("id");
@@ -146,20 +117,21 @@
 
     const personaModal = document.getElementById("personaModal");
     const personasList = document.getElementById("personasList");
+
     const openPersonaModalBtn = document.getElementById("openPersonaModalBtn");
     const closePersonaModalBtn = document.getElementById("closePersonaModalBtn");
     const withoutPersonaBtn = document.getElementById("withoutPersonaBtn");
-
-    const settingsPanel = document.getElementById("settingsPanel");
-    const closeSettingsBtn = document.getElementById("closeSettingsBtn");
+    const confirmPersonaBtn = document.getElementById("confirmPersonaBtn");
 
     const clearChatBtn = document.getElementById("clearChatBtn");
     const newChatBtn = document.getElementById("newChatBtn");
 
     let currentChatId = null;
     let currentBot = null;
-    let activePersona = null;
+
     let personas = [];
+    let activePersona = null;
+    let selectedPersonaInModal = null;
 
     function escapeHtml(text) {
       const div = document.createElement("div");
@@ -183,58 +155,37 @@
     }
 
     function renderEmpty(text) {
-      messagesBox.innerHTML = `<div class="message-empty">${escapeHtml(text)}</div>`;
-    }
-
-    function renderMessage(senderType, text, options = {}) {
-      const normalized = senderType === "user" ? "user" : "bot";
-
-      const row = document.createElement("div");
-      row.className = `message message-${normalized}`;
-
-      const avatar = normalized === "user"
-        ? activePersona?.avatar_url || savedUser?.avatar_url || "/img/icon.svg"
-        : currentBot?.avatar_url || "/img/icon.svg";
-
-      const name = normalized === "user"
-        ? activePersona?.name || savedUser?.username || "Вы"
-        : currentBot?.name || "Бот";
-
-      row.innerHTML = `
-        <img class="message-avatar" src="${escapeHtml(avatar)}" alt="avatar" />
-        <div class="message-content">
-          <div class="message-author">${escapeHtml(name)}</div>
-          <div class="message-bubble ${options.loading ? "loading" : ""}">
-            ${escapeHtml(text)}
-          </div>
-        </div>
+      messagesBox.innerHTML = `
+        <div class="message-empty">${escapeHtml(text)}</div>
       `;
-
-      messagesBox.appendChild(row);
-      messagesBox.scrollTop = messagesBox.scrollHeight;
-
-      return row;
-    }
-
-    function setBotAvatar(avatarUrl) {
-      chatBotAvatar.src = avatarUrl && avatarUrl.trim() ? avatarUrl : "/img/icon.svg";
-
-      chatBotAvatar.onerror = () => {
-        chatBotAvatar.src = "/img/icon.svg";
-      };
     }
 
     function setActivePersona(persona) {
-      activePersona = persona;
+  if (persona) {
+    activePersona = {
+      id: persona.id,
+      name: persona.name,
+      description: persona.description || "",
+      persona_prompt: persona.persona_prompt || persona.description || "",
+      avatar_url: persona.avatar_url || ""
+    };
 
-      if (persona) {
-        localStorage.setItem(`activePersona_${userId}`, JSON.stringify(persona));
-        activePersonaName.textContent = persona.name;
-      } else {
-        localStorage.removeItem(`activePersona_${userId}`);
-        activePersonaName.textContent = "не выбрана";
-      }
-    }
+    localStorage.setItem(
+      `activePersonaId_${userId}`,
+      String(activePersona.id)
+    );
+
+    activePersonaName.textContent = activePersona.name;
+    personaBtn.classList.add("active");
+  } else {
+    activePersona = null;
+
+    localStorage.removeItem(`activePersonaId_${userId}`);
+
+    activePersonaName.textContent = "не выбрана";
+    personaBtn.classList.remove("active");
+  }
+}
 
     async function loadPersonas() {
       try {
@@ -247,21 +198,17 @@
 
         personas = Array.isArray(data) ? data : [];
 
-        const savedPersona = JSON.parse(
-          localStorage.getItem(`activePersona_${userId}`) || "null"
-        );
+const savedPersonaId = localStorage.getItem(`activePersonaId_${userId}`);
 
-        const defaultPersona =
-          personas.find((p) => savedPersona && Number(p.id) === Number(savedPersona.id)) ||
-          personas.find((p) => Number(p.is_default) === 1) ||
-          null;
+const foundPersona = personas.find((persona) => {
+  return Number(persona.id) === Number(savedPersonaId);
+});
 
-        setActivePersona(defaultPersona);
-        renderPersonas();
+setActivePersona(foundPersona || null);
       } catch (error) {
         console.error(error);
         personas = [];
-        renderPersonas();
+        setActivePersona(null);
       }
     }
 
@@ -271,36 +218,88 @@
       if (!personas.length) {
         personasList.innerHTML = `
           <div class="persona-empty">
-            У вас пока нет персон. Создайте первую персону для ролевого общения.
+            У вас пока нет персон.
           </div>
         `;
         return;
       }
 
       personas.forEach((persona) => {
+        const isSelected =
+          selectedPersonaInModal &&
+          Number(selectedPersonaInModal.id) === Number(persona.id);
+
         const item = document.createElement("button");
         item.type = "button";
-        item.className =
-          activePersona && Number(activePersona.id) === Number(persona.id)
-            ? "persona-option active"
-            : "persona-option";
+        item.className = isSelected
+          ? "persona-option active"
+          : "persona-option";
 
         item.innerHTML = `
           <img src="${escapeHtml(persona.avatar_url || "/img/icon.svg")}" alt="persona" />
-          <div>
+
+          <div class="persona-option-info">
             <strong>${escapeHtml(persona.name)}</strong>
-            <span>${escapeHtml(persona.persona_prompt || persona.description || "Без описания")}</span>
+            <span>${escapeHtml(persona.description || "Без описания")}</span>
           </div>
-          ${Number(persona.is_default) === 1 ? `<em>Основная</em>` : ""}
+
+          <div class="persona-radio"></div>
         `;
 
         item.addEventListener("click", () => {
-          setActivePersona(persona);
-          closePersonaModal();
+          selectedPersonaInModal = persona;
+          renderPersonas();
         });
 
         personasList.appendChild(item);
       });
+    }
+
+    function openPersonaModal() {
+      selectedPersonaInModal = activePersona;
+      renderPersonas();
+
+      personaModal.classList.remove("hidden");
+      dropdownMenu.classList.remove("open");
+    }
+
+    function closePersonaModal() {
+      personaModal.classList.add("hidden");
+    }
+
+    function renderMessage(senderType, text, options = {}) {
+      const type = senderType === "user" ? "user" : "bot";
+
+      const row = document.createElement("div");
+      row.className = type === "user"
+        ? "message message-user"
+        : "message message-bot";
+
+      const avatar =
+        type === "user"
+          ? activePersona?.avatar_url || savedUser.avatar_url || "/img/icon.svg"
+          : currentBot?.avatar_url || "/img/icon.svg";
+
+      const name =
+        type === "user"
+          ? activePersona?.name || savedUser.username || "Вы"
+          : currentBot?.name || "Бот";
+
+      row.innerHTML = `
+        <img class="message-avatar" src="${escapeHtml(avatar)}" alt="avatar" />
+
+        <div class="message-content">
+          <div class="message-author">${escapeHtml(name)}</div>
+          <div class="message-bubble ${options.loading ? "loading" : ""}">
+            ${escapeHtml(text)}
+          </div>
+        </div>
+      `;
+
+      messagesBox.appendChild(row);
+      messagesBox.scrollTop = messagesBox.scrollHeight;
+
+      return row;
     }
 
     async function loadChatByBot() {
@@ -325,19 +324,20 @@
 
         chatBotName.textContent = data.bot?.name || "Без имени";
         chatTopTitle.textContent = data.bot?.name || "Чат";
+
         chatBotDesc.textContent =
           data.bot?.short_description ||
           data.bot?.full_description ||
           "Персонаж готов к диалогу.";
 
+        chatBotAvatar.src = data.bot?.avatar_url || "/img/icon.svg";
         chatInput.placeholder = `Сообщение для ${data.bot?.name || "персонажа"}...`;
-        setBotAvatar(data.bot?.avatar_url);
 
         clearMessages();
 
         if (Array.isArray(data.messages) && data.messages.length > 0) {
-          data.messages.forEach((msg) => {
-            renderMessage(msg.sender_type, msg.content);
+          data.messages.forEach((message) => {
+            renderMessage(message.sender_type, message.content);
           });
         } else {
           renderEmpty("Начните диалог первым сообщением");
@@ -352,11 +352,10 @@
       const payload = {
         text,
         persona_id: activePersona?.id || null,
-        persona_prompt: activePersona?.persona_prompt || activePersona?.description || "",
-        model: document.getElementById("modelInput").value.trim(),
-        global_prompt: document.getElementById("globalPromptInput").value.trim(),
-        temperature: Number(document.getElementById("temperatureInput").value || 0.8),
-        max_tokens: Number(document.getElementById("maxTokensInput").value || 1024),
+        persona_prompt:
+          activePersona?.persona_prompt ||
+          activePersona?.description ||
+          "",
       };
 
       const response = await fetch(`${API_BASE}/chat/${currentChatId}/message`, {
@@ -376,10 +375,11 @@
       return data;
     }
 
-    chatForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
+    chatForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
 
       const text = chatInput.value.trim();
+
       if (!text) return;
 
       if (!currentChatId) {
@@ -387,13 +387,16 @@
         return;
       }
 
-      const hadEmpty = messagesBox.querySelector(".message-empty");
-      if (hadEmpty) clearMessages();
+      if (messagesBox.querySelector(".message-empty")) {
+        clearMessages();
+      }
 
       renderMessage("user", text);
       chatInput.value = "";
 
-      const loadingMessage = renderMessage("bot", "Печатает...", { loading: true });
+      const loadingMessage = renderMessage("bot", "Печатает...", {
+        loading: true,
+      });
 
       try {
         const data = await sendMessageToServer(text);
@@ -407,9 +410,9 @@
       }
     });
 
-    chatInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
+    chatInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
         chatForm.requestSubmit();
       }
     });
@@ -418,46 +421,97 @@
       dropdownMenu.classList.toggle("open");
     });
 
-    document.addEventListener("click", (e) => {
-      if (!dropdownMenu.contains(e.target) && !menuBtn.contains(e.target)) {
+    document.addEventListener("click", (event) => {
+      if (!dropdownMenu.contains(event.target) && !menuBtn.contains(event.target)) {
         dropdownMenu.classList.remove("open");
       }
     });
-
-    function openPersonaModal() {
-      personaModal.classList.remove("hidden");
-      dropdownMenu.classList.remove("open");
-    }
-
-    function closePersonaModal() {
-      personaModal.classList.add("hidden");
-    }
 
     personaBtn.addEventListener("click", openPersonaModal);
     openPersonaModalBtn.addEventListener("click", openPersonaModal);
     closePersonaModalBtn.addEventListener("click", closePersonaModal);
 
     withoutPersonaBtn.addEventListener("click", () => {
+      selectedPersonaInModal = null;
       setActivePersona(null);
       closePersonaModal();
     });
 
-    closeSettingsBtn.addEventListener("click", () => {
-      settingsPanel.classList.remove("open");
+    confirmPersonaBtn.addEventListener("click", () => {
+      if (!selectedPersonaInModal) {
+        alert("Выберите персону");
+        return;
+      }
+
+      setActivePersona(selectedPersonaInModal);
+      closePersonaModal();
     });
 
-    document.querySelector(".settings-btn")?.addEventListener("click", () => {
-      settingsPanel.classList.add("open");
-    });
+    clearChatBtn.addEventListener("click", async () => {
+      if (!currentChatId) {
+        alert("Чат ещё не загружен");
+        return;
+      }
 
-    clearChatBtn.addEventListener("click", () => {
-      if (confirm("Очистить сообщения только на экране?")) {
-        renderEmpty("Чат очищен на экране");
+      const ok = confirm("Удалить все сообщения этого чата?");
+      if (!ok) return;
+
+      try {
+        const response = await fetch(`${API_BASE}/chat/${currentChatId}/messages`, {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            user_id: userId,
+          }),
+        });
+
+        const data = await safeReadJson(response);
+
+        if (!response.ok) {
+          throw new Error(data.message || "Ошибка очистки чата");
+        }
+
+        renderEmpty("Сообщения удалены");
+        dropdownMenu.classList.remove("open");
+      } catch (error) {
+        console.error(error);
+        alert(error.message);
       }
     });
 
-    newChatBtn.addEventListener("click", () => {
-      window.location.href = `/pages/chat.html?id=${botId}`;
+    newChatBtn.addEventListener("click", async () => {
+      if (!currentChatId) {
+        alert("Чат ещё не загружен");
+        return;
+      }
+
+      const ok = confirm("Создать новый чат? Старый чат будет удалён.");
+      if (!ok) return;
+
+      try {
+        const response = await fetch(`${API_BASE}/chat/${currentChatId}`, {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            user_id: userId,
+          }),
+        });
+
+        const data = await safeReadJson(response);
+
+        if (!response.ok) {
+          throw new Error(data.message || "Ошибка создания нового чата");
+        }
+
+        window.location.href = `/pages/chat.html?id=${botId}&new=${Date.now()}`;
+      } catch (error) {
+        console.error(error);
+        alert(error.message);
+      }
     });
 
     (async () => {

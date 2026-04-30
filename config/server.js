@@ -1475,6 +1475,105 @@ app.delete("/persona/:id", (req, res) => {
     });
   });
 });
+/* удалить сообщения чата */
+app.delete("/chat/:chatId/messages", (req, res) => {
+  const { chatId } = req.params;
+  const { user_id } = req.body;
+
+  if (!user_id) {
+    return res.status(400).json({ message: "Не указан пользователь" });
+  }
+
+  const checkSql = `
+    SELECT id, user_id
+    FROM chats
+    WHERE id = ?
+    LIMIT 1
+  `;
+
+  db.query(checkSql, [chatId], (err, rows) => {
+    if (err) {
+      console.error("CHECK CHAT OWNER ERROR:", err);
+      return res.status(500).json({ message: "Ошибка проверки чата" });
+    }
+
+    if (!rows.length) {
+      return res.status(404).json({ message: "Чат не найден" });
+    }
+
+    if (Number(rows[0].user_id) !== Number(user_id)) {
+      return res.status(403).json({ message: "Нет доступа к этому чату" });
+    }
+
+    db.query("DELETE FROM messages WHERE chat_id = ?", [chatId], (deleteErr) => {
+      if (deleteErr) {
+        console.error("DELETE CHAT MESSAGES ERROR:", deleteErr);
+        return res.status(500).json({ message: "Ошибка удаления сообщений" });
+      }
+
+      db.query(
+        "UPDATE chats SET updated_at = NOW() WHERE id = ?",
+        [chatId],
+        () => {
+          res.json({ message: "Сообщения удалены ✅" });
+        }
+      );
+    });
+  });
+});
+
+/* удалить чат полностью */
+app.delete("/chat/:chatId", (req, res) => {
+  const { chatId } = req.params;
+  const { user_id } = req.body;
+
+  if (!user_id) {
+    return res.status(400).json({ message: "Не указан пользователь" });
+  }
+
+  const checkSql = `
+    SELECT id, user_id
+    FROM chats
+    WHERE id = ?
+    LIMIT 1
+  `;
+
+  db.query(checkSql, [chatId], (err, rows) => {
+    if (err) {
+      console.error("CHECK CHAT DELETE ERROR:", err);
+      return res.status(500).json({ message: "Ошибка проверки чата" });
+    }
+
+    if (!rows.length) {
+      return res.status(404).json({ message: "Чат не найден" });
+    }
+
+    if (Number(rows[0].user_id) !== Number(user_id)) {
+      return res.status(403).json({ message: "Нет доступа к этому чату" });
+    }
+
+    db.query("DELETE FROM messages WHERE chat_id = ?", [chatId], (msgErr) => {
+      if (msgErr) {
+        console.error("DELETE CHAT MSG ERROR:", msgErr);
+        return res.status(500).json({ message: "Ошибка удаления сообщений" });
+      }
+
+      db.query("DELETE FROM chats WHERE id = ?", [chatId], (chatErr) => {
+        if (chatErr) {
+          console.error("DELETE CHAT ERROR:", chatErr);
+          return res.status(500).json({ message: "Ошибка удаления чата" });
+        }
+
+        res.json({ message: "Чат удалён ✅" });
+      });
+    });
+  });
+});
+
+
+
+
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
