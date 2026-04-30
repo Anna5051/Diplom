@@ -8,10 +8,10 @@
   <link rel="stylesheet" href="/css/person.css" />
 </head>
 <body>
-  <header class="topbar">
+  <header class="person-topbar">
     <div class="topbar-left">
       <a href="/pages/main.html" class="brand">Charitor.ai</a>
-      <a href="/pages/main.html" class="top-link">← На главную</a>
+      <a href="/pages/main.html" class="top-link">← Назад</a>
     </div>
 
     <div class="search-box">
@@ -19,37 +19,26 @@
       <button type="button">⌕</button>
     </div>
 
-    <div class="topbar-right">
-      <a href="/pages/profile.html" class="profile-mini">
-        <img id="topAvatar" src="/img/icon.svg" alt="avatar" />
-      </a>
-    </div>
+    <a href="/pages/profile.html" class="profile-mini">
+      <img id="topAvatar" src="/img/icon.svg" alt="avatar" />
+    </a>
   </header>
 
   <main class="person-page">
-    <section class="person-head">
+    <div class="person-head">
       <div>
-        <p class="eyebrow">Persona Manager</p>
         <h1>Мои персоны</h1>
-        <p>
-          Создавай разные образы для общения с персонажами. Например: принцесса,
-          студент, маг, злодей или обычный пользователь.
-        </p>
+        <p>Выбери персону, от лица которой будешь общаться с ботами.</p>
       </div>
 
-      <button class="create-persona-btn" id="openCreateBtn" type="button">
-        + Создать персону
-      </button>
-    </section>
+      <div class="person-count" id="personaCounter">0 персон</div>
+    </div>
 
-    <section class="persona-tabs">
+    <div class="person-controls">
       <button class="tab-btn active" data-filter="all">Все персоны</button>
-      <button class="tab-btn" data-filter="default">Основная</button>
-    </section>
+    </div>
 
     <section class="persona-grid" id="personaGrid"></section>
-
-    <p class="empty-state" id="emptyState">Персоны пока не созданы</p>
   </main>
 
   <div class="modal-overlay" id="personaModal">
@@ -59,34 +48,43 @@
         <button type="button" id="closeModalBtn">×</button>
       </div>
 
-      <div class="modal-body">
-        <div class="avatar-column">
-          <img id="avatarPreview" src="/img/icon.svg" alt="avatar" />
-          <label class="avatar-upload">
-            Загрузить фото
-            <input id="avatarInput" type="file" accept="image/*" hidden />
-          </label>
+    <div class="modal-body">
+  <div class="modal-grid">
+    <div class="avatar-column">
+      <label>Аватар</label>
+
+      <label class="persona-upload">
+        <input id="avatarInput" type="file" accept="image/*" hidden />
+        <div class="upload-empty" id="uploadEmpty">
+          <div class="camera-icon">▣</div>
+          <p>Перетащите изображение сюда или выберите его, щёлкнув по нему.</p>
         </div>
+        <img id="avatarPreview" src="" alt="avatar" />
+      </label>
+    </div>
 
-        <div class="form-column">
-          <label>Имя персоны *</label>
-          <input id="personaName" type="text" placeholder="Например: Azula" />
+    <div class="form-column">
+      <label>Имя *</label>
+      <input id="personaName" type="text" placeholder="Введите имя человека" />
 
-          <label>Краткий тип / роль</label>
-          <input id="personaRole" type="text" placeholder="Например: Fire Princess" />
+<label>Местоимения</label>
+<select id="personaRole">
+  <option value="">Местоимения</option>
+  <option value="Она/Её">Она/Её</option>
+  <option value="Он/Его">Он/Его</option>
+</select>
 
-          <label>Описание *</label>
-          <textarea
-            id="personaDescription"
-            placeholder="Опиши, кто эта персона, её характер, внешность, стиль общения и роль в сюжете..."
-          ></textarea>
+    </div>
+  </div>
 
-          <label class="check-row">
-            <input id="personaDefault" type="checkbox" />
-            Сделать основной персоной
-          </label>
-        </div>
-      </div>
+  <div class="description-block">
+    <label>Описание *</label>
+    <textarea
+      id="personaDescription"
+      placeholder="Опишите внешность, характер, биографию персонажа..."
+    ></textarea>
+  </div>
+</div>
 
       <div class="modal-footer">
         <button class="delete-btn" id="deletePersonaBtn" type="button">Удалить</button>
@@ -110,20 +108,18 @@
     const topAvatar = document.getElementById("topAvatar");
     const searchPersonaInput = document.getElementById("searchPersonaInput");
     const personaGrid = document.getElementById("personaGrid");
-    const emptyState = document.getElementById("emptyState");
+    const personaCounter = document.getElementById("personaCounter");
 
     const personaModal = document.getElementById("personaModal");
     const modalTitle = document.getElementById("modalTitle");
     const closeModalBtn = document.getElementById("closeModalBtn");
     const cancelBtn = document.getElementById("cancelBtn");
-    const openCreateBtn = document.getElementById("openCreateBtn");
 
     const avatarPreview = document.getElementById("avatarPreview");
     const avatarInput = document.getElementById("avatarInput");
     const personaName = document.getElementById("personaName");
     const personaRole = document.getElementById("personaRole");
     const personaDescription = document.getElementById("personaDescription");
-    const personaDefault = document.getElementById("personaDefault");
 
     const savePersonaBtn = document.getElementById("savePersonaBtn");
     const deletePersonaBtn = document.getElementById("deletePersonaBtn");
@@ -138,9 +134,7 @@
       savedUser.avatar_url ||
       "";
 
-    if (savedAvatar) {
-      topAvatar.src = savedAvatar;
-    }
+    if (savedAvatar) topAvatar.src = savedAvatar;
 
     function escapeHtml(text) {
       const div = document.createElement("div");
@@ -148,47 +142,63 @@
       return div.innerHTML;
     }
 
-    function openModal(persona = null) {
-      personaModal.classList.add("active");
-
-      if (persona) {
-        currentEditId = persona.id;
-        modalTitle.textContent = "Редактировать персону";
-        deletePersonaBtn.style.display = "inline-flex";
-
-        personaName.value = persona.name || "";
-        personaRole.value = persona.role || "";
-        personaDescription.value = persona.description || "";
-        personaDefault.checked = Number(persona.is_default) === 1;
-
-        avatarValue = persona.avatar_url || "";
-        avatarPreview.src = avatarValue || "/img/icon.svg";
-      } else {
-        currentEditId = null;
-        modalTitle.textContent = "Создать персону";
-        deletePersonaBtn.style.display = "none";
-
-        personaName.value = "";
-        personaRole.value = "";
-        personaDescription.value = "";
-        personaDefault.checked = personas.length === 0;
-
-        avatarValue = "";
-        avatarPreview.src = "/img/icon.svg";
-      }
+    function updateCounter(count) {
+      personaCounter.textContent = `${count} персон`;
     }
 
+    function openModal(persona = null) {
+  personaModal.classList.add("active");
+  document.body.classList.add("modal-open");
+
+  const uploadEmpty = document.getElementById("uploadEmpty");
+
+  if (persona) {
+    currentEditId = persona.id;
+    modalTitle.textContent = "Редактировать персону";
+    deletePersonaBtn.style.display = "inline-flex";
+
+    personaName.value = persona.name || "";
+    personaRole.value = persona.role || "";
+    personaDescription.value = persona.description || "";
+
+    avatarValue = persona.avatar_url || "";
+    avatarPreview.src = avatarValue || "";
+
+    if (avatarValue) {
+      avatarPreview.style.display = "block";
+      uploadEmpty.style.display = "none";
+    } else {
+      avatarPreview.style.display = "none";
+      uploadEmpty.style.display = "block";
+    }
+
+  } else {
+    currentEditId = null;
+    modalTitle.textContent = "Создать персону";
+    deletePersonaBtn.style.display = "none";
+
+    personaName.value = "";
+    personaRole.value = "";
+    personaDescription.value = "";
+
+    avatarValue = "";
+    avatarPreview.src = "";
+
+    avatarPreview.style.display = "none";
+    uploadEmpty.style.display = "block";
+  }
+}
     function closeModal() {
       personaModal.classList.remove("active");
+      document.body.classList.remove("modal-open");
     }
 
     function renderPersonas() {
       const query = searchPersonaInput.value.trim().toLowerCase();
-
       let filtered = [...personas];
 
-      if (currentFilter === "default") {
-        filtered = filtered.filter((item) => Number(item.is_default) === 1);
+      if (currentFilter === "filled") {
+        filtered = filtered.filter((item) => String(item.description || "").trim());
       }
 
       if (query) {
@@ -201,77 +211,49 @@
       }
 
       personaGrid.innerHTML = "";
-
-      if (!filtered.length) {
-        emptyState.style.display = "block";
-        return;
-      }
-
-      emptyState.style.display = "none";
+      updateCounter(filtered.length);
 
       filtered.forEach((persona) => {
         const card = document.createElement("article");
         card.className = "persona-card";
 
         card.innerHTML = `
-          <button class="edit-persona-btn" type="button" data-id="${persona.id}">
-            ✎
-          </button>
+          <div class="persona-card-top">
+            <h3>${escapeHtml(persona.name || "Без имени")}</h3>
+            <button class="edit-persona-btn" type="button" data-id="${persona.id}">✎</button>
+          </div>
 
           <div class="persona-image">
             <img src="${persona.avatar_url || "/img/icon.svg"}" alt="persona" />
           </div>
 
           <div class="persona-info">
-            <div class="persona-title">
-              <h3>${escapeHtml(persona.name)}</h3>
-              ${
-                Number(persona.is_default) === 1
-                  ? `<span>Основная</span>`
-                  : ""
-              }
-            </div>
-
-            <p class="persona-role">${escapeHtml(persona.role || "Без роли")}</p>
+            <span class="persona-tag">${escapeHtml(persona.role || "Без роли")}</span>
 
             <p class="persona-desc">
               ${escapeHtml(persona.description || "Описание отсутствует")}
             </p>
-
-            <div class="persona-actions">
-              <button class="use-btn" type="button" data-id="${persona.id}">
-                Использовать
-              </button>
-              <button class="set-default-btn" type="button" data-id="${persona.id}">
-                Сделать основной
-              </button>
-            </div>
           </div>
         `;
 
         personaGrid.appendChild(card);
       });
 
+      const createCard = document.createElement("button");
+      createCard.className = "create-card";
+      createCard.type = "button";
+      createCard.innerHTML = `
+        <span class="plus-circle">+</span>
+        <span>Создать персону</span>
+      `;
+      createCard.addEventListener("click", () => openModal());
+      personaGrid.appendChild(createCard);
+
       document.querySelectorAll(".edit-persona-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
           const id = Number(btn.dataset.id);
           const persona = personas.find((item) => Number(item.id) === id);
           openModal(persona);
-        });
-      });
-
-      document.querySelectorAll(".use-btn").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const id = Number(btn.dataset.id);
-          localStorage.setItem(`selectedPersona_${savedUser.id}`, String(id));
-          alert("Персона выбрана для чата ✅");
-        });
-      });
-
-      document.querySelectorAll(".set-default-btn").forEach((btn) => {
-        btn.addEventListener("click", async () => {
-          const id = Number(btn.dataset.id);
-          await setDefaultPersona(id);
         });
       });
     }
@@ -309,7 +291,7 @@
         role,
         description,
         avatar_url: avatarValue,
-        is_default: personaDefault.checked ? 1 : 0
+        is_default: 0
       };
 
       try {
@@ -318,17 +300,13 @@
         if (currentEditId) {
           response = await fetch(`${API_URL}/persona/${currentEditId}`, {
             method: "PUT",
-            headers: {
-              "Content-Type": "application/json"
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
           });
         } else {
           response = await fetch(`${API_URL}/persona`, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
           });
         }
@@ -350,19 +328,13 @@
 
     async function deletePersona() {
       if (!currentEditId) return;
-
-      const ok = confirm("Удалить эту персону?");
-      if (!ok) return;
+      if (!confirm("Удалить эту персону?")) return;
 
       try {
         const response = await fetch(`${API_URL}/persona/${currentEditId}`, {
           method: "DELETE",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            user_id: savedUser.id
-          })
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: savedUser.id })
         });
 
         const data = await response.json();
@@ -380,53 +352,31 @@
       }
     }
 
-    async function setDefaultPersona(id) {
-      try {
-        const response = await fetch(`${API_URL}/persona/${id}/default`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            user_id: savedUser.id
-          })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          alert(data.message || "Ошибка");
-          return;
-        }
-
-        await loadPersonas();
-      } catch (error) {
-        console.error(error);
-        alert("Ошибка выбора основной персоны");
-      }
-    }
-
     avatarInput.addEventListener("change", () => {
-      const file = avatarInput.files[0];
-      if (!file) return;
+  const file = avatarInput.files[0];
+  if (!file) return;
 
-      const reader = new FileReader();
+  const reader = new FileReader();
 
-      reader.onload = (event) => {
-        avatarValue = event.target.result;
-        avatarPreview.src = avatarValue;
-      };
+  reader.onload = (event) => {
+    avatarValue = event.target.result;
+    avatarPreview.src = avatarValue;
+    avatarPreview.style.display = "block";
+    document.getElementById("uploadEmpty").style.display = "none";
+  };
 
-      reader.readAsDataURL(file);
-    });
+  reader.readAsDataURL(file);
+});
 
-    openCreateBtn.addEventListener("click", () => openModal());
     closeModalBtn.addEventListener("click", closeModal);
     cancelBtn.addEventListener("click", closeModal);
     savePersonaBtn.addEventListener("click", savePersona);
     deletePersonaBtn.addEventListener("click", deletePersona);
-
     searchPersonaInput.addEventListener("input", renderPersonas);
+
+    personaModal.addEventListener("click", (e) => {
+      if (e.target === personaModal) closeModal();
+    });
 
     document.querySelectorAll(".tab-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
