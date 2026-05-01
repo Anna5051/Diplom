@@ -296,12 +296,12 @@
         fullStoryText = text || "Описание отсутствует";
 
         if (fullStoryText.length > 400) {
-          storyBox.textContent = fullStoryText.slice(0, 400) + "...";
+        storyBox.innerHTML = fullStoryText.slice(0, 400) + "...";
           toggleStoryBtn.style.display = "inline-block";
           toggleStoryBtn.textContent = "Открыть полностью";
           storyExpanded = false;
         } else {
-          storyBox.textContent = fullStoryText;
+         storyBox.innerHTML = fullStoryText;
           toggleStoryBtn.style.display = "none";
         }
       }
@@ -310,11 +310,11 @@
         if (!fullStoryText) return;
 
         if (storyExpanded) {
-          storyBox.textContent = fullStoryText.slice(0, 400) + "...";
+        storyBox.innerHTML = fullStoryText.slice(0, 400) + "...";
           toggleStoryBtn.textContent = "Открыть полностью";
           storyExpanded = false;
         } else {
-          storyBox.textContent = fullStoryText;
+        storyBox.innerHTML = fullStoryText;
           toggleStoryBtn.textContent = "Скрыть";
           storyExpanded = true;
         }
@@ -447,14 +447,13 @@
             bot.full_description || "Описание сюжета отсутствует",
           );
           setTags(bot.tags);
-
-          accordionPlot.textContent = bot.full_description || "Сюжет не указан";
-          accordionPersonality.textContent =
-            bot.short_description || "Личность не указана";
-          accordionGreeting.textContent =
-            bot.greeting_message || "Начальное сообщение не указано";
-          accordionSystemPrompt.textContent =
-            bot.system_prompt || "Системный промпт не указан";
+accordionPlot.innerHTML = bot.full_description || "Сюжет не указан";
+accordionPersonality.innerHTML =
+  bot.short_description || "Личность не указана";
+accordionGreeting.innerHTML =
+  bot.greeting_message || "Начальное сообщение не указано";
+accordionSystemPrompt.innerHTML =
+  bot.system_prompt || "Системный промпт не указан";
 
           showOwnerButtons(bot);
         } catch (error) {
