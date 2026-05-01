@@ -76,6 +76,14 @@
                 <button class="edit-btn" id="toggleEditBtn" type="button">
                   Редактировать профиль
                 </button>
+                <button
+                  class="edit-btn"
+                  id="followAuthorBtn"
+                  type="button"
+                  style="display: none"
+                >
+                  Подписаться
+                </button>
               </div>
 
               <div class="profile-bio-preview-card">
@@ -182,6 +190,14 @@
 
       const bioStorageKey = `profileBioHtml_${savedUser.id}`;
       const avatarStorageKey = `profileAvatar_${savedUser.id}`;
+      const profileParams = new URLSearchParams(window.location.search);
+      const externalAuthorId = profileParams.get("authorId");
+      const externalUsername = (profileParams.get("username") || "").trim();
+      const isExternalProfile =
+        (externalAuthorId && String(externalAuthorId) !== String(savedUser.id)) ||
+        (!!externalUsername &&
+          externalUsername.toLowerCase() !==
+            String(savedUser.username || "").toLowerCase());
 
       const usernameElement = document.getElementById("username");
       const profileEditor = document.getElementById("profileEditor");
@@ -191,6 +207,7 @@
       const followersCount = document.getElementById("followersCount");
       const memberSince = document.getElementById("memberSince");
       const toggleEditBtn = document.getElementById("toggleEditBtn");
+      const followAuthorBtn = document.getElementById("followAuthorBtn");
       const profileEditorPanel = document.getElementById("profileEditorPanel");
 
       const profileAvatar = document.getElementById("profileAvatar");
@@ -211,41 +228,82 @@
       const sortCharacters = document.getElementById("sortCharacters");
 
       let characters = [];
+      let viewedProfile = {
+        id: savedUser.id,
+        username: savedUser.username || "unknown",
+        created_at: savedUser.created_at || null,
+        avatar_url: savedUser.avatar_url || "",
+      };
 
-      if (savedUser?.username) {
-        usernameElement.textContent = savedUser.username;
+      function getAuthorStorageKey(profile) {
+        if (profile?.id) return `author_${profile.id}`;
+        return `author_name_${String(profile?.username || "unknown").toLowerCase()}`;
       }
 
-      if (savedUser?.created_at) {
-        const date = new Date(savedUser.created_at);
-        if (!Number.isNaN(date.getTime())) {
-          memberSince.textContent = date.toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          });
+      function getFollowersStorageKey(profile) {
+        return `profileFollowers_${getAuthorStorageKey(profile)}`;
+      }
+
+      function getFollowers(profile) {
+        try {
+          const value = localStorage.getItem(getFollowersStorageKey(profile));
+          const parsed = JSON.parse(value || "[]");
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
         }
       }
 
-      followersCount.textContent = "0";
+      function setFollowers(profile, followerIds) {
+        localStorage.setItem(
+          getFollowersStorageKey(profile),
+          JSON.stringify(followerIds),
+        );
+      }
 
-      const savedBioHtml = localStorage.getItem(bioStorageKey);
-      if (savedBioHtml) {
-        profileEditor.innerHTML = savedBioHtml;
-        profilePreview.innerHTML = savedBioHtml;
-      } else {
-        profilePreview.innerHTML = "Описание пока не заполнено";
+      function isFollowing(profile) {
+        return getFollowers(profile).includes(savedUser.id);
+      }
+
+      function updateFollowersCount(profile) {
+        followersCount.textContent = String(getFollowers(profile).length);
+      }
+
+      function updateFollowButton(profile) {
+        const active = isFollowing(profile);
+        followAuthorBtn.textContent = active ? "Отписаться" : "Подписаться";
+      }
+
+      function applyProfileBaseData(profile) {
+        usernameElement.textContent = profile.username || "unknown";
+
+        if (profile.created_at) {
+          const date = new Date(profile.created_at);
+          if (!Number.isNaN(date.getTime())) {
+            memberSince.textContent = date.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            });
+          }
+        }
       }
 
       const savedAvatar = localStorage.getItem(avatarStorageKey);
       const userAvatar = savedUser.avatar_url || "";
 
       if (savedAvatar && savedAvatar.trim()) {
-        profileAvatar.src = savedAvatar;
         topbarAvatar.src = savedAvatar;
       } else if (userAvatar && userAvatar.trim()) {
-        profileAvatar.src = userAvatar;
         topbarAvatar.src = userAvatar;
+      }
+
+      if (isExternalProfile) {
+        toggleEditBtn.style.display = "none";
+        profileEditorPanel.classList.add("hidden");
+        profileAvatarInput.disabled = true;
+        document.querySelector(".avatar-change-btn").style.display = "none";
+        followAuthorBtn.style.display = "inline-flex";
       }
 
       function compressImage(file, maxSize = 320, quality = 0.82) {
@@ -315,6 +373,7 @@
       });
 
       toggleEditBtn.addEventListener("click", () => {
+        if (isExternalProfile) return;
         profileEditorPanel.classList.toggle("hidden");
 
         toggleEditBtn.textContent = profileEditorPanel.classList.contains(
@@ -371,6 +430,7 @@
       });
 
       saveProfileBtn.addEventListener("click", () => {
+        if (isExternalProfile) return;
         const html = profileEditor.innerHTML.trim();
 
         localStorage.setItem(bioStorageKey, html);
@@ -380,10 +440,23 @@
       });
 
       cancelProfileBtn.addEventListener("click", () => {
+        if (isExternalProfile) return;
         const currentHtml =
           localStorage.getItem(bioStorageKey) || "Hi, I'm Hanna.";
         profileEditor.innerHTML = currentHtml;
         profilePreview.innerHTML = currentHtml || "Описание пока не заполнено";
+      });
+
+      followAuthorBtn.addEventListener("click", () => {
+        const followers = getFollowers(viewedProfile);
+        const already = followers.includes(savedUser.id);
+        const next = already
+          ? followers.filter((id) => id !== savedUser.id)
+          : [...followers, savedUser.id];
+
+        setFollowers(viewedProfile, next);
+        updateFollowersCount(viewedProfile);
+        updateFollowButton(viewedProfile);
       });
 
       function renderCharacters(items) {
@@ -446,13 +519,101 @@
       characterSearch.addEventListener("input", updateCharacters);
       sortCharacters.addEventListener("change", updateCharacters);
 
+      async function loadProfileData() {
+        applyProfileBaseData(savedUser);
+
+        const ownBioHtml = localStorage.getItem(bioStorageKey);
+        profileEditor.innerHTML = ownBioHtml || "Hi, I'm Hanna.";
+        profilePreview.innerHTML = ownBioHtml || "Описание пока не заполнено";
+
+        if (savedAvatar && savedAvatar.trim()) {
+          profileAvatar.src = savedAvatar;
+        } else if (userAvatar && userAvatar.trim()) {
+          profileAvatar.src = userAvatar;
+        }
+
+        if (!isExternalProfile) {
+          viewedProfile = {
+            id: savedUser.id,
+            username: savedUser.username || "unknown",
+            created_at: savedUser.created_at || null,
+            avatar_url: userAvatar,
+          };
+          updateFollowersCount(viewedProfile);
+          return;
+        }
+
+        try {
+          const response = await fetch("http://localhost:3000/all-bots");
+
+          if (!response.ok) {
+            const text = await response.text();
+            console.error("RAW RESPONSE:", text);
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const raw = await response.json();
+          const data = Array.isArray(raw) ? raw : [];
+          const matchedBots = data.filter((bot) => {
+            if (
+              externalAuthorId &&
+              String(bot.creator_id || bot.author_id || "") ===
+                String(externalAuthorId)
+            ) {
+              return true;
+            }
+            return (
+              String(bot.author_name || bot.author || "")
+                .trim()
+                .toLowerCase() === externalUsername.toLowerCase()
+            );
+          });
+
+          const sample = matchedBots[0];
+          viewedProfile = {
+            id: sample?.creator_id || sample?.author_id || externalAuthorId || null,
+            username:
+              sample?.author_name || sample?.author || externalUsername || "unknown",
+            created_at: sample?.created_at || null,
+            avatar_url: sample?.avatar_url || "",
+          };
+
+          applyProfileBaseData(viewedProfile);
+          profilePreview.innerHTML = `Профиль автора @${viewedProfile.username}`;
+          profileEditor.innerHTML = profilePreview.innerHTML;
+
+          if (viewedProfile.avatar_url) {
+            profileAvatar.src = viewedProfile.avatar_url;
+          } else {
+            profileAvatar.src = "/img/icon.svg";
+          }
+
+          updateFollowersCount(viewedProfile);
+          updateFollowButton(viewedProfile);
+        } catch (error) {
+          console.error("Ошибка загрузки данных профиля:", error);
+          viewedProfile = {
+            id: externalAuthorId || null,
+            username: externalUsername || "unknown",
+            created_at: null,
+            avatar_url: "",
+          };
+          applyProfileBaseData(viewedProfile);
+          profilePreview.innerHTML = `Профиль автора @${viewedProfile.username}`;
+          profileEditor.innerHTML = profilePreview.innerHTML;
+          updateFollowersCount(viewedProfile);
+          updateFollowButton(viewedProfile);
+        }
+      }
+
       async function loadCharacters() {
         if (!savedUser || !savedUser.id) return;
 
         try {
-          const response = await fetch(
-            `http://localhost:3000/my-bots/${savedUser.id}`,
-          );
+          const endpoint = isExternalProfile
+            ? "http://localhost:3000/all-bots"
+            : `http://localhost:3000/my-bots/${savedUser.id}`;
+          const response = await fetch(endpoint);
 
           if (!response.ok) {
             const text = await response.text();
@@ -461,8 +622,26 @@
           }
 
           const data = await response.json();
+          let list = Array.isArray(data) ? data : [];
 
-          characters = Array.isArray(data) ? data : [];
+          if (isExternalProfile) {
+            list = list.filter((bot) => {
+              if (
+                externalAuthorId &&
+                String(bot.creator_id || bot.author_id || "") ===
+                  String(externalAuthorId)
+              ) {
+                return true;
+              }
+              return (
+                String(bot.author_name || bot.author || "")
+                  .trim()
+                  .toLowerCase() === externalUsername.toLowerCase()
+              );
+            });
+          }
+
+          characters = list;
           updateCharacters();
         } catch (error) {
           console.error("Ошибка загрузки персонажей:", error);
@@ -471,7 +650,33 @@
         }
       }
 
-      loadCharacters();
+      (async () => {
+        await loadProfileData();
+        await loadCharacters();
+      })();
+
+      document.body.classList.add("page-transition");
+      requestAnimationFrame(() => {
+        document.body.classList.add("page-ready");
+      });
+
+      document.addEventListener("click", (event) => {
+        const link = event.target.closest("a[href]");
+        if (!link) return;
+
+        const href = link.getAttribute("href");
+        if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
+        if (link.target === "_blank" || event.ctrlKey || event.metaKey || event.shiftKey) return;
+
+        const url = new URL(link.href, window.location.origin);
+        if (url.origin !== window.location.origin) return;
+
+        event.preventDefault();
+        document.body.classList.add("page-leaving");
+        setTimeout(() => {
+          window.location.href = url.pathname + url.search + url.hash;
+        }, 180);
+      });
     </script>
   </body>
 </html>

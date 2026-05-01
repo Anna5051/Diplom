@@ -8,3 +8,16 @@ body {
   background-repeat: no-repeat;
   background-attachment: fixed;
 }
+
+body.page-transition {
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+body.page-transition.page-ready {
+  opacity: 1;
+}
+
+body.page-transition.page-leaving {
+  opacity: 0;
+}

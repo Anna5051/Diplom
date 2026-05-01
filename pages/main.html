@@ -69,6 +69,7 @@
       <div class="tabs-row">
         <button class="tab-btn active" id="myBotsTabBtn">Мои персонажи</button>
         <button class="tab-btn" id="allBotsTabBtn">Все персонажи</button>
+        <button class="tab-btn" id="favoritesBotsTabBtn">Избранные</button>
       </div>
 
       <section id="cards-grid" class="cards-grid"></section>
@@ -100,6 +101,7 @@
 
   const myBotsTabBtn = document.getElementById("myBotsTabBtn");
   const allBotsTabBtn = document.getElementById("allBotsTabBtn");
+  const favoritesBotsTabBtn = document.getElementById("favoritesBotsTabBtn");
 
   const savedAvatar =
     localStorage.getItem(`profileAvatar_${savedUser.id}`) ||
@@ -115,6 +117,21 @@
   let currentTab = "my";
   let myBotsData = [];
   let allBotsData = [];
+
+  function getFavoriteBotKey(botId) {
+    return `favoriteBot_${savedUser.id}_${botId}`;
+  }
+
+  function isFavoriteBot(botId) {
+    return localStorage.getItem(getFavoriteBotKey(botId)) === "true";
+  }
+
+  function toggleFavoriteBot(botId) {
+    const key = getFavoriteBotKey(botId);
+    const current = localStorage.getItem(key) === "true";
+    localStorage.setItem(key, String(!current));
+    return !current;
+  }
 
   function escapeHtml(text) {
     const div = document.createElement("div");
@@ -159,44 +176,109 @@
     });
   }
 
-  function renderBots(items) {
-    cardsGrid.innerHTML = "";
-    foundText.textContent = `Найдено: ${items.length}`;
+function renderBots(items) {
+  cardsGrid.innerHTML = "";
+  foundText.textContent = `Найдено: ${items.length}`;
 
-    if (!items.length) {
-      botsEmpty.style.display = "block";
-      return;
-    }
+  if (!items.length) {
+    botsEmpty.style.display = "block";
+    return;
+  }
 
-    botsEmpty.style.display = "none";
+  botsEmpty.style.display = "none";
 
-    items.forEach((bot) => {
-      const card = document.createElement("article");
-      card.className = "bot-card";
+  items.forEach((bot) => {
+    const card = document.createElement("article");
+    card.className = "bot-card";
 
-      card.innerHTML = `
+    const favoriteBot = isFavoriteBot(bot.id);
+    const authorIdPart = bot.creator_id ? `authorId=${encodeURIComponent(bot.creator_id)}&` : "";
+    const authorProfileUrl = `/pages/profile.html?${authorIdPart}username=${encodeURIComponent(bot.author || "unknown")}`;
+
+    const tags = (bot.tags || "")
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean)
+      .slice(0, 4);
+
+    card.innerHTML = `
+      <div class="bot-image-wrap">
         <a href="/pages/bot.html?id=${bot.id}" class="bot-image">
           <img src="${bot.avatar || "/img/icon.svg"}" alt="bot">
         </a>
 
-        <div class="bot-body">
-          <h3>${escapeHtml(bot.name)}</h3>
-          <p class="bot-author">@${escapeHtml(bot.author || "unknown")}</p>
-          <p class="bot-desc">${escapeHtml(bot.description || "Описание отсутствует")}</p>
+        <button
+          type="button"
+          class="favorite-btn ${favoriteBot ? "active" : ""}"
+          title="Добавить в избранное"
+          aria-label="Добавить персонажа в избранное"
+        >
+          ❤
+        </button>
+      </div>
 
-          <div class="bot-actions">
-            <a href="/pages/bot.html?id=${bot.id}" class="card-btn">Открыть</a>
-            <a href="/pages/chat.html?id=${bot.id}" class="card-btn primary">Чат</a>
+      <div class="bot-body">
+        <div class="bot-title-row">
+          <div>
+            <h3>${escapeHtml(bot.name)}</h3>
+            <p class="bot-author">
+              <a href="${authorProfileUrl}" class="author-link">
+                @${escapeHtml(bot.author || "unknown")}
+              </a>
+            </p>
           </div>
         </div>
-      `;
 
-      cardsGrid.appendChild(card);
+        <p class="bot-desc">${escapeHtml(bot.description || "Описание отсутствует")}</p>
+
+        <div class="bot-tags">
+          ${
+            tags.length
+              ? tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")
+              : `<span>Нет тегов</span>`
+          }
+        </div>
+
+        <div class="bot-actions">
+          <a href="/pages/bot.html?id=${bot.id}" class="card-btn">Открыть</a>
+          <a href="/pages/chat.html?id=${bot.id}" class="card-btn primary">Чат</a>
+        </div>
+      </div>
+    `;
+
+    const favoriteBtn = card.querySelector(".favorite-btn");
+
+    favoriteBtn.addEventListener("click", () => {
+      const next = toggleFavoriteBot(bot.id);
+      favoriteBtn.classList.toggle("active", next);
+      favoriteBtn.title = next
+        ? "Удалить из избранного"
+        : "Добавить в избранное";
+
+      if (currentTab === "favorites") {
+        applySearch();
+      }
     });
-  }
 
+    cardsGrid.appendChild(card);
+  });
+}
   function getCurrentSource() {
-    return currentTab === "all" ? allBotsData : myBotsData;
+    if (currentTab === "all") return allBotsData;
+    if (currentTab === "favorites") {
+      const combined = [...myBotsData, ...allBotsData];
+      const unique = new Map();
+
+      combined.forEach((bot) => {
+        if (!unique.has(bot.id)) {
+          unique.set(bot.id, bot);
+        }
+      });
+
+      return [...unique.values()].filter((bot) => isFavoriteBot(bot.id));
+    }
+
+    return myBotsData;
   }
 
   function applySearch() {
@@ -217,6 +299,7 @@
 
     myBotsTabBtn.classList.toggle("active", tab === "my");
     allBotsTabBtn.classList.toggle("active", tab === "all");
+    favoritesBotsTabBtn.classList.toggle("active", tab === "favorites");
 
     applySearch();
   }
@@ -230,6 +313,7 @@
         id: bot.id,
         name: bot.name,
         author: savedUser.username,
+        creator_id: savedUser.id,
         tags: bot.tags || "",
         description: bot.short_description || "",
         avatar: bot.avatar_url || "/img/icon.svg",
@@ -248,6 +332,7 @@
         id: bot.id,
         name: bot.name,
         author: bot.author_name || "unknown",
+        creator_id: bot.creator_id || bot.author_id || null,
         tags: bot.tags || "",
         description: bot.short_description || "",
         avatar: bot.avatar_url || "/img/icon.svg",
@@ -293,6 +378,7 @@
 
   myBotsTabBtn.addEventListener("click", () => activateTab("my"));
   allBotsTabBtn.addEventListener("click", () => activateTab("all"));
+  favoritesBotsTabBtn.addEventListener("click", () => activateTab("favorites"));
 
   (async () => {
     await loadMyChats();
@@ -300,6 +386,29 @@
     await loadAllBots();
     activateTab("my");
   })();
+
+  document.body.classList.add("page-transition");
+  requestAnimationFrame(() => {
+    document.body.classList.add("page-ready");
+  });
+
+  document.addEventListener("click", (event) => {
+    const link = event.target.closest("a[href]");
+    if (!link) return;
+
+    const href = link.getAttribute("href");
+    if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
+    if (link.target === "_blank" || event.ctrlKey || event.metaKey || event.shiftKey) return;
+
+    const url = new URL(link.href, window.location.origin);
+    if (url.origin !== window.location.origin) return;
+
+    event.preventDefault();
+    document.body.classList.add("page-leaving");
+    setTimeout(() => {
+      window.location.href = url.pathname + url.search + url.hash;
+    }, 180);
+  });
 </script>
 </body>
 </html>

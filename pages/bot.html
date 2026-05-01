@@ -10,10 +10,12 @@
   <body>
     <header class="topbar">
       <div class="topbar-left">
-        <a href="/pages/index.html" class="brand">Charitor.ai</a>
+        <a href="/pages/main.html" class="brand">Charitor.ai</a>
+      </div>
 
-        <form class="search-box" action="#" method="get">
-          <input type="text" placeholder="Поиск..." />
+      <div class="topbar-center">
+        <form class="search-box" id="topSearchForm">
+          <input id="topSearchInput" type="text" placeholder="Поиск персонажей..." />
           <button type="submit" aria-label="Поиск">⌕</button>
         </form>
       </div>
@@ -25,7 +27,7 @@
         </button>
 
         <a href="/pages/profile.html" class="profile-mini" aria-label="Профиль">
-          <img src="/img/icon.svg" alt="avatar" />
+          <img id="topAvatar" src="/img/icon.svg" alt="avatar" />
         </a>
       </div>
     </header>
@@ -56,8 +58,10 @@
               class="favorite-btn"
               type="button"
               aria-label="Добавить в избранное"
+              id="favoriteBtn"
+              title="Добавить в избранное"
             >
-              ❤
+              <span class="favorite-icon">♡</span>
             </button>
           </div>
 
@@ -79,6 +83,15 @@
               Редактировать
             </button>
           </div>
+
+          <section class="bot-tags-inline">
+            <div class="bot-tags-head">
+              <h3>Теги</h3>
+            </div>
+            <div class="tags-list" id="tagsList">
+              <span class="tag">Нет тегов</span>
+            </div>
+          </section>
         </div>
       </section>
 
@@ -86,7 +99,7 @@
         <div class="story-left">
           <h2>Описание сюжета</h2>
 
-          <div class="story-box" id="storyBox">Загрузка сюжета...</div>
+          <div class="story-text" id="storyBox">Загрузка сюжета...</div>
 
           <div class="story-action">
             <button type="button" class="secondary-action" id="toggleStoryBtn">
@@ -94,14 +107,6 @@
             </button>
           </div>
         </div>
-
-        <aside class="tags-card">
-          <h3>Теги</h3>
-
-          <div class="tags-list" id="tagsList">
-            <span class="tag">Нет тегов</span>
-          </div>
-        </aside>
       </section>
 
       <section class="full-history-section">
@@ -136,30 +141,31 @@
         </div>
       </section>
 
-      <section class="comments-section">
-        <h2>Комментарии (0)</h2>
-
-        <div class="comments-list">
-          <article class="comment-card">
-            <img src="/img/icon.svg" alt="user" class="comment-avatar" />
-
-            <div class="comment-body">
-              <div class="comment-top">
-                <strong>Система</strong>
-                <span>сейчас</span>
-              </div>
-
-              <p>Комментарии пока не подключены.</p>
-            </div>
-
-            <div class="comment-actions">
-              <button type="button" aria-label="Дизлайк">👎</button>
-              <button type="button" aria-label="Лайк">👍</button>
-            </div>
-          </article>
-        </div>
-      </section>
     </main>
+
+    <div class="persona-modal hidden" id="chatPersonaModal">
+      <div class="persona-modal-card">
+        <div class="persona-modal-head">
+          <h2>Выбор персоны для чата</h2>
+          <button type="button" id="closeChatPersonaModalBtn">×</button>
+        </div>
+
+        <p class="persona-modal-subtitle">
+          Выбери, от лица какой персоны начать общение с этим персонажем.
+        </p>
+
+        <div class="persona-modal-list" id="chatPersonaList"></div>
+
+        <div class="persona-modal-actions">
+          <button type="button" class="secondary-action" id="chatWithoutPersonaBtn">
+            Без персоны
+          </button>
+          <button type="button" class="primary-action" id="confirmChatPersonaBtn">
+            Начать чат
+          </button>
+        </div>
+      </div>
+    </div>
 
     <script>
       const savedUser = JSON.parse(localStorage.getItem("user"));
@@ -186,10 +192,63 @@
       const toggleStoryBtn = document.getElementById("toggleStoryBtn");
       const startChatBtn = document.getElementById("startChatBtn");
       const editBotBtn = document.getElementById("editBotBtn");
+      const topAvatar = document.getElementById("topAvatar");
+      const topSearchInput = document.getElementById("topSearchInput");
+      const topSearchForm = document.getElementById("topSearchForm");
+      const favoriteBtn = document.getElementById("favoriteBtn");
+      const chatPersonaModal = document.getElementById("chatPersonaModal");
+      const chatPersonaList = document.getElementById("chatPersonaList");
+      const closeChatPersonaModalBtn = document.getElementById(
+        "closeChatPersonaModalBtn",
+      );
+      const chatWithoutPersonaBtn = document.getElementById(
+        "chatWithoutPersonaBtn",
+      );
+      const confirmChatPersonaBtn = document.getElementById(
+        "confirmChatPersonaBtn",
+      );
 
       let storyExpanded = false;
       let fullStoryText = "";
       let currentBot = null;
+      let personas = [];
+      let activePersona = null;
+      let selectedPersonaInModal = null;
+
+      const savedTopAvatar =
+        localStorage.getItem(`profileAvatar_${savedUser?.id}`) ||
+        savedUser?.avatar_url ||
+        "";
+      if (savedTopAvatar) topAvatar.src = savedTopAvatar;
+
+      function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text ?? "";
+        return div.innerHTML;
+      }
+
+      function getFavoriteKey() {
+        if (!savedUser?.id || !botId) return "";
+        return `favoriteBot_${savedUser.id}_${botId}`;
+      }
+
+      function updateFavoriteButton() {
+        const key = getFavoriteKey();
+        if (!key) return;
+
+        const active = localStorage.getItem(key) === "true";
+        favoriteBtn.classList.toggle("active", active);
+        favoriteBtn.title = active ? "Удалить из избранного" : "Добавить в избранное";
+        favoriteBtn.setAttribute(
+          "aria-label",
+          active ? "Удалить из избранного" : "Добавить в избранное",
+        );
+
+        const icon = favoriteBtn.querySelector(".favorite-icon");
+        if (icon) {
+          icon.textContent = active ? "❤" : "♡";
+        }
+      }
 
       function setImageWithFallback(
         imgElement,
@@ -268,6 +327,90 @@
         editBotBtn.style.display = "inline-flex";
       }
 
+      function setActivePersona(persona) {
+        if (!savedUser?.id) return;
+
+        if (!persona) {
+          activePersona = null;
+          localStorage.removeItem(`activePersonaId_${savedUser.id}`);
+          return;
+        }
+
+        activePersona = persona;
+        localStorage.setItem(`activePersonaId_${savedUser.id}`, String(persona.id));
+      }
+
+      function renderChatPersonaModalList() {
+        chatPersonaList.innerHTML = "";
+
+        if (!personas.length) {
+          const empty = document.createElement("div");
+          empty.className = "persona-modal-empty";
+          empty.textContent = "У тебя пока нет персон";
+          chatPersonaList.appendChild(empty);
+          return;
+        }
+
+        personas.forEach((persona) => {
+          const isSelected =
+            selectedPersonaInModal &&
+            Number(selectedPersonaInModal.id) === Number(persona.id);
+
+          const item = document.createElement("button");
+          item.type = "button";
+          item.className = isSelected
+            ? "persona-modal-item active"
+            : "persona-modal-item";
+          item.innerHTML = `
+            <img src="${persona.avatar_url || "/img/icon.svg"}" alt="persona">
+            <div>
+              <strong>${escapeHtml(persona.name || "Без имени")}</strong>
+              <span>${escapeHtml(persona.description || "Без описания")}</span>
+            </div>
+          `;
+          item.addEventListener("click", () => {
+            selectedPersonaInModal = persona;
+            renderChatPersonaModalList();
+          });
+          chatPersonaList.appendChild(item);
+        });
+      }
+
+      function openChatPersonaModal() {
+        selectedPersonaInModal = activePersona;
+        renderChatPersonaModalList();
+        chatPersonaModal.classList.remove("hidden");
+      }
+
+      function closeChatPersonaModal() {
+        chatPersonaModal.classList.add("hidden");
+      }
+
+      function goToChatWithPersona(persona) {
+        const personaQuery = persona?.id
+          ? `&persona=${encodeURIComponent(persona.id)}`
+          : "";
+        window.location.href = `/pages/chat.html?id=${botId}${personaQuery}`;
+      }
+
+      async function loadPersonas() {
+        if (!savedUser?.id) return;
+
+        try {
+          const response = await fetch(`http://localhost:3000/personas/${savedUser.id}`);
+          const data = await response.json();
+          personas = Array.isArray(data) ? data : [];
+
+          const savedPersonaId = localStorage.getItem(`activePersonaId_${savedUser.id}`);
+          const found = personas.find((item) => Number(item.id) === Number(savedPersonaId));
+          activePersona = found || null;
+        } catch {
+          personas = [];
+          activePersona = null;
+        }
+
+      }
+
       async function loadBot() {
         if (!botId) {
           botName.textContent = "Бот не найден";
@@ -331,8 +474,7 @@
           alert("ID бота не найден");
           return;
         }
-
-        window.location.href = `/pages/chat.html?id=${botId}`;
+        openChatPersonaModal();
       });
 
       editBotBtn.addEventListener("click", () => {
@@ -340,7 +482,69 @@
         window.location.href = `/pages/create.html?id=${botId}`;
       });
 
-      loadBot();
+      topSearchForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const query = topSearchInput.value.trim();
+        window.location.href = `/pages/search.html?q=${encodeURIComponent(query)}`;
+      });
+
+      favoriteBtn.addEventListener("click", () => {
+        const key = getFavoriteKey();
+        if (!key) return;
+
+        const current = localStorage.getItem(key) === "true";
+        localStorage.setItem(key, String(!current));
+        updateFavoriteButton();
+      });
+
+      closeChatPersonaModalBtn.addEventListener("click", closeChatPersonaModal);
+
+      chatWithoutPersonaBtn.addEventListener("click", () => {
+        setActivePersona(null);
+        closeChatPersonaModal();
+        goToChatWithPersona(null);
+      });
+
+      confirmChatPersonaBtn.addEventListener("click", () => {
+        setActivePersona(selectedPersonaInModal || activePersona || null);
+        closeChatPersonaModal();
+        goToChatWithPersona(selectedPersonaInModal || activePersona || null);
+      });
+
+      chatPersonaModal.addEventListener("click", (event) => {
+        if (event.target === chatPersonaModal) {
+          closeChatPersonaModal();
+        }
+      });
+
+      document.body.classList.add("page-transition");
+      requestAnimationFrame(() => {
+        document.body.classList.add("page-ready");
+      });
+
+      document.addEventListener("click", (event) => {
+        const link = event.target.closest("a[href]");
+        if (!link) return;
+
+        const href = link.getAttribute("href");
+        if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
+        if (link.target === "_blank" || event.ctrlKey || event.metaKey || event.shiftKey) return;
+
+        const url = new URL(link.href, window.location.origin);
+        if (url.origin !== window.location.origin) return;
+
+        event.preventDefault();
+        document.body.classList.add("page-leaving");
+        setTimeout(() => {
+          window.location.href = url.pathname + url.search + url.hash;
+        }, 180);
+      });
+
+      (async () => {
+        await loadPersonas();
+        await loadBot();
+        updateFavoriteButton();
+      })();
     </script>
   </body>
 </html>
